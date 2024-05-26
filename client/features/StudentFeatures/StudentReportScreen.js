@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { StyleSheet, Text, View, TextInput, Button, Modal } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import { db } from "../../../lib/firebase";
+import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 const StudentReportScreen = () => {
   const [reportType, setReportType] = useState("");
@@ -23,32 +26,75 @@ const StudentReportScreen = () => {
     "Report Non-Technical",
   ];
 
-  const senderTypes = ["Teacher", "Admin", "Master Admin"];
+  const senderTypes = ["Student"];
 
-  const submitReport = () => {
+  const submitReport = async () => {
     if (!reportType || !senderType || !description) {
       setShowErrorAlert(true);
       return;
     }
-
-    // Logic to save report in the database and send it to the respective recipient
+  
+    const auth = getAuth();
+    const user = auth.currentUser;
+  
+    console.log(user);
+  
+    if (!user) {
+      Alert.alert("Error", "User not authenticated");
+      return;
+    }
+  
+    let adminName = "";
+    try {
+      const studentCollection = collection(db, "Students");
+      const studentDocs = await getDocs(studentCollection);
+      for (const studentDoc of studentDocs.docs) {
+        const authCollection = collection(db, "Students", studentDoc.id, "auth");
+  
+        const q = query(authCollection, where("isApproved", "==", true));
+        const querySnapshot = await getDocs(q);
+  
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          console.log(data, "data")
+          adminName = data.name
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching student data:", error);
+      Alert.alert("Error", "Failed to fetch student data");
+      return;
+    }
+  
+    // Prepare report data
     const reportData = {
       reportType,
       senderType,
       description,
-      submissionDate: new Date().toLocaleString(), // Adding real-time date and time
+      submissionDate: serverTimestamp(),
+      studentUID: user.uid,
+      adminName: adminName, // Include student's name in report data
     };
-
-    setShowSuccessAlert(true);
-
-    // Reset inputs
-    setReportType("");
-    setSenderType("");
-    setDescription("");
-
-    // For now, logging the report data in console
-    console.log(JSON.stringify(reportData));
+  
+    try {
+      // Save the report to Firestore subcollection under the authenticated student's document
+      const userDocRef = await addDoc(collection(db, "Students"), {});
+      await addDoc(
+        collection(db, "Students", userDocRef.id, "reports"),
+        reportData
+      );
+      setShowSuccessAlert(true);
+  
+      // Reset inputs
+      setReportType("");
+      setSenderType("");
+      setDescription("");
+    } catch (error) {
+      console.error("Error saving report to Firestore:", error);
+      Alert.alert("Error", "Failed to submit the report. Please try again.");
+    }
   };
+  
 
   return (
     <View style={styles.container}>
@@ -178,163 +224,3 @@ const styles = StyleSheet.create({
 
 export default StudentReportScreen;
 
-// import { StyleSheet, Text, View, TextInput, Button, Alert } from "react-native";
-// import React, { useState } from "react";
-// import { Picker } from "@react-native-picker/picker";
-
-// const StudentReportScreen = () => {
-//   const [reportType, setReportType] = useState("");
-//   const [senderType, setSenderType] = useState("");
-//   const [description, setDescription] = useState("");
-
-//   const reportTypes = [
-//     "Report General",
-//     "Report Collage",
-//     "Report Dept.",
-//     "Report Subject",
-//     "Report Student",
-//     "Report Teacher",
-//     "Report TimeTable",
-//     "Report Attendance",
-//     "Report Calendar",
-//     "Report Technical",
-//     "Report Non-Technical",
-//   ];
-
-//   const senderTypes = ["Teacher", "Admin", "Master Admin"];
-
-//   const submitReport = () => {
-//     if (!reportType || !senderType || !description) {
-//       Alert.alert(
-//         "Error",
-//         "Please fill all inputs and choose from the lists.",
-//         [{ text: "OK", style: "okButton" }],
-//         { style: "errorAlert" }
-//       );
-//       return;
-//     }
-
-//     // Logic to save report in the database and send it to the respective recipient
-//     const reportData = {
-//       reportType,
-//       senderType,
-//       description,
-//       submissionDate: new Date().toLocaleString(), // Adding real-time date and time
-//     };
-
-//     // Show success alert
-//     Alert.alert(
-//       "Success",
-//       "The report has been sent.",
-//       [{ text: "OK", style: "okButton" }],
-//       { style: "successAlert" }
-//     );
-
-//     // Reset inputs
-//     setReportType("");
-//     setSenderType("");
-//     setDescription("");
-
-//     // For now, logging the report data in console
-//     console.log(JSON.stringify(reportData));
-//   };
-
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.heading}>Student Report</Text>
-//       <View style={styles.inputContainer}>
-//         <Text style={styles.label}>Select Report Type:</Text>
-//         <Picker
-//           selectedValue={reportType}
-//           style={[styles.dropdown, styles.pickerBackground]}
-//           onValueChange={(itemValue, itemIndex) => setReportType(itemValue)}
-//         >
-//           <Picker.Item label="Select Report Type" value="" />
-//           {reportTypes.map((type, index) => (
-//             <Picker.Item key={index} label={type} value={type} />
-//           ))}
-//         </Picker>
-//       </View>
-//       <View style={styles.inputContainer}>
-//         <Text style={styles.label}>Select Sender Type:</Text>
-//         <Picker
-//           selectedValue={senderType}
-//           style={[styles.dropdown, styles.pickerBackground]}
-//           onValueChange={(itemValue, itemIndex) => setSenderType(itemValue)}
-//         >
-//           <Picker.Item label="Select Sender Type" value="" />
-//           {senderTypes.map((type, index) => (
-//             <Picker.Item key={index} label={type} value={type} />
-//           ))}
-//         </Picker>
-//       </View>
-//       <View style={styles.inputContainer}>
-//         <Text style={styles.label}>Description:</Text>
-//         <TextInput
-//           style={[styles.input, styles.descriptionInput]}
-//           multiline
-//           numberOfLines={4}
-//           placeholder="Enter report description"
-//           value={description}
-//           onChangeText={(text) => setDescription(text)}
-//         />
-//       </View>
-//       <Button title="Submit" onPress={submitReport} />
-//     </View>
-//   );
-// };
-
-// export default StudentReportScreen;
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     padding: 20,
-//   },
-//   heading: {
-//     fontSize: 20,
-//     fontWeight: "bold",
-//     marginBottom: 20,
-//   },
-//   inputContainer: {
-//     marginBottom: 20,
-//   },
-//   label: {
-//     fontSize: 16,
-//     marginBottom: 5,
-//   },
-//   dropdown: {
-//     borderWidth: 1,
-//     borderColor: "#ccc",
-//     borderRadius: 5,
-//   },
-//   input: {
-//     borderWidth: 1,
-//     borderColor: "#ccc",
-//     borderRadius: 5,
-//     padding: 10,
-//     fontSize: 16,
-//   },
-//   descriptionInput: {
-//     height: 100,
-//   },
-//   successAlert: {
-//     backgroundColor: "#4CAF50",
-//     color: "#FFF",
-//     fontSize: 16,
-//     fontWeight: "bold",
-//   },
-//   okButton: {
-//     color: "#FFF",
-//   },
-//   errorAlert: {
-//     backgroundColor: "#F44336",
-//     color: "#FFF",
-//     fontSize: 16,
-//     fontWeight: "bold",
-//   },
-//   pickerBackground: {
-//     backgroundColor: "#f9f9f9",
-//     borderRadius: 5,
-//   },
-// });

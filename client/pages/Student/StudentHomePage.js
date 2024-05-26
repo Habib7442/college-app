@@ -15,6 +15,7 @@ import {
   ScrollView,
   Image,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 const StudentHomePage = ({ route }) => {
   const navigation = useNavigation();
 
@@ -72,11 +73,12 @@ const StudentHomePage = ({ route }) => {
   };
 
   return (
+    <SafeAreaView style={styles.container}>
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={openDrawer} style={styles.iconContainer}>
-            <Ionicons name="md-menu" size={30} color="white" />
+            <Ionicons name="menu" size={30} color="white" />
           </TouchableOpacity>
 
           <Text style={styles.headerText}>My College App</Text>
@@ -84,7 +86,7 @@ const StudentHomePage = ({ route }) => {
             onPress={handleNotifications}
             style={styles.iconContainer}
           >
-            <Ionicons name="md-notifications" size={30} color="white" />
+            <Ionicons name="notifications" size={30} color="white" />
           </TouchableOpacity>
         </View>
 
@@ -93,7 +95,7 @@ const StudentHomePage = ({ route }) => {
             source={require("../../image/3033337.png")}
             style={styles.bigCardImage}
           />
-          <Text style={styles.bigCardText}>Collage Name</Text>
+          <Text style={styles.bigCardText}>College Name</Text>
         </TouchableOpacity>
         <View style={styles.features}>
           <Text style={styles.featuresText}>Features</Text>
@@ -136,32 +138,34 @@ const StudentHomePage = ({ route }) => {
             <Text style={styles.cardText}>ERP</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => handleCardPress("Pending")}
+            onPress={() => handleCardPress("Notice")}
             style={styles.card}
           >
-            <Text style={styles.cardText}>Pending</Text>
+            <Text style={styles.cardText}>Notices</Text>
           </TouchableOpacity>
         </View>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor: "#f0f0f0",
-    backgroundColor: "#98FB98",
+    backgroundColor: "#F5FCFF",
   },
   scrollContainer: {
     flexGrow: 1,
   },
+  innerContainer: {
+    padding: 10,
+  },
   bigCard: {
     margin: 20,
-
     width: "90%",
     aspectRatio: 2,
-    backgroundColor: "#fff",
+    backgroundColor: "#6A5ACD",
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
@@ -178,7 +182,7 @@ const styles = StyleSheet.create({
   bigCardText: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "black",
+    color: "white",
     top: 60,
   },
   cards: {
@@ -196,7 +200,7 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    backgroundColor: "#0BDA51",
+    backgroundColor: "#6A5ACD",
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
@@ -212,8 +216,7 @@ const styles = StyleSheet.create({
   card: {
     width: "40%",
     aspectRatio: 1,
-    // backgroundColor: "#fff",
-    backgroundColor: "#0FFF50",
+    backgroundColor: "#87CEFA",
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
@@ -233,7 +236,6 @@ const styles = StyleSheet.create({
   },
   features: {
     padding: 10,
-
     alignItems: "center",
   },
   featuresText: {

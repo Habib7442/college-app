@@ -1,6 +1,26 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, View, TextInput, Button, Modal } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  Button,
+  Modal,
+  Alert,
+} from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import { db } from "../../../lib/firebase";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDoc,
+  doc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
+import { getAuth } from "firebase/auth"; // Import Firebase Auth to get current user
 
 const AdminReportScreen = () => {
   const [reportType, setReportType] = useState("");
@@ -23,36 +43,79 @@ const AdminReportScreen = () => {
     "Report Non-Technical",
   ];
 
-  const senderTypes = ["Teacher", "Master Admin"];
+  const senderTypes = ["Admin"];
 
-  const submitReport = () => {
+  const submitReport = async () => {
     if (!reportType || !senderType || !description) {
       setShowErrorAlert(true);
       return;
     }
 
-    // Logic to save report in the database and send it to the respective recipient
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+
+    if (!user) {
+      Alert.alert("Error", "User not authenticated");
+      return;
+    }
+
+    // Fetch admin's name from Firestore based on UID
+    let adminName = "";
+    try {
+      const adminCollection = collection(db, "Admins");
+      const adminDocs = await getDocs(adminCollection);
+      for (const adminDoc of adminDocs.docs) {
+        const authCollection = collection(db, "Admins", adminDoc.id, "auth");
+
+        const q = query(authCollection, where("isApproved", "==", true));
+        const querySnapshot = await getDocs(q);
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          adminName = data.name
+        });
+
+      }
+
+    } catch (error) {
+      console.error("Error fetching admin data:", error);
+      Alert.alert("Error", "Failed to fetch admin data");
+      return;
+    }
+
+    // Prepare report data
     const reportData = {
       reportType,
       senderType,
       description,
-      submissionDate: new Date().toLocaleString(), // Adding real-time date and time
+      submissionDate: serverTimestamp(),
+      adminUID: user.uid,
+      adminName: adminName, // Include admin's name in report data
     };
 
-    setShowSuccessAlert(true);
+    try {
+      // Save the report to Firestore subcollection under the authenticated admin's document
+      const userDocRef = await addDoc(collection(db, "Admins"), {}); // Change "Teachers" to "Admins"
+      await addDoc(
+        collection(db, "Admins", userDocRef.id, "reports"), // Change "Teachers" to "Admins"
+        reportData
+      );
+      setShowSuccessAlert(true);
 
-    // Reset inputs
-    setReportType("");
-    setSenderType("");
-    setDescription("");
-
-    // For now, logging the report data in console
-    console.log(JSON.stringify(reportData));
+      // Reset inputs
+      setReportType("");
+      setSenderType("");
+      setDescription("");
+    } catch (error) {
+      console.error("Error saving report to Firestore:", error);
+      Alert.alert("Error", "Failed to submit the report. Please try again.");
+    }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Student Report</Text>
+      <Text style={styles.heading}>Admin Report</Text>
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Select Report Type:</Text>
         <Picker

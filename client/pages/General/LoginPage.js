@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { setIsLoggedIn } from "../../context/actions/authActions";
 import { isValidEmail } from "../../utils/validation";
@@ -7,92 +7,102 @@ import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   Image,
   KeyboardAvoidingView,
   TextInput,
   Pressable,
   Alert,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AntDesign } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Picker } from "@react-native-picker/picker";
-// import { useLogin } from "../../context/LoginProvider";
-// import { getUserType, setUserType } from "../../components/userType";
-const LoginPage = () => {
-  // const userType = getUserType();
-  // const setUserType = setUserType();
+import { forgotPassword, signIn } from "../../../lib/firebase";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { SafeAreaView } from "react-native-safe-area-context";
 
+const LoginPage = () => {
   const dispatch = useDispatch();
-  // const { setIsLoggedIn } = useLogin();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // const [userType, setUserType] = useState("");
 
   const [college, setCollege] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
-  // Local userType state for user selection
   const [localUserType, setLocalUserType] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loggedIn, setLoggedIn] = useState(false);
 
-  // Redux userType state
   const userType = useSelector((state) => state.auth.userType);
+  const auth = getAuth();
 
-  // const handleLogin = () => {
-  //   // Validate input fields
-  //   if (!email || !password || !localUserType || !college) {
-  //     Alert.alert("Error", "Please fill in all fields");
-  //     return;
-  //   }
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setLoggedIn(true);
+      } else {
+        setLoggedIn(false);
+      }
+      setLoading(false);
+    });
 
-  //   // Validate email format (can be enhanced further with regex)
-  //   if (!isValidEmail(email)) {
-  //     Alert.alert("Error", "Please enter a valid email address");
-  //     return;
-  //   }
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
 
-  //   // Handle login logic (to be implemented with backend)
-  //   // For now, navigate to OTP verification with user type
-  //   // setUserType(college);
+  if (loading) {
+    return null; // Or a loading spinner
+  }
 
-  //   // setIsLoggedIn(false);
-  //   dispatch(loginSuccess(localUserType));
-  //   dispatch(setUserType(localUserType));
-  //   navigation.navigate("OTPVerification", {
-  //     localUserType,
-  //     college,
-  //     email,
-  //     password,
-  //   });
-  // };
-  const handleLogin = () => {
+
+  const handleLogin = async () => {
     // Validate input fields
     if (!email || !password || !localUserType || !college) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
 
-    // Validate email format (can be enhanced further with regex)
+    // Validate email format
     if (!isValidEmail(email)) {
       Alert.alert("Error", "Please enter a valid email address");
       return;
     }
 
-    // Navigate to OTP verification page
-    setIsLoggedIn(false); // Set isLoggedIn to false initially
-    dispatch(setUserType(localUserType));
-    navigation.navigate("OTPVerification", {
-      localUserType,
-      college,
-      email,
-      password,
-    });
+    setIsLoading(true); // Set loading state to true
+
+    try {
+      const user = await signIn(email, password, localUserType); // Call the signIn function
+
+      if (user) {
+        // Set isLoggedIn to true after successful sign-in
+        dispatch(loginSuccess());
+        dispatch(setUserType(localUserType));
+        Alert.alert("Login Successful");
+        navigation.navigate("MainDrawer");
+      }
+    } catch (error) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsLoading(false); // Set loading state to false
+    }
   };
 
   const isValidEmail = (email) => {
     // Basic email validation (can be enhanced further with regex)
     return /\S+@\S+\.\S+/.test(email);
+  };
+
+  const handleForgotPassword = () => {
+    forgotPassword(email)
+      .then(() => {
+        console.log("Password reset email sent.");
+      })
+      .catch((error) => {
+        console.error("Error in sending password reset email: ", error);
+      });
   };
 
   return (
@@ -106,7 +116,6 @@ const LoginPage = () => {
             }}
           />
         </View>
-        {/* User Type Selection */}
         <View style={styles.header}>
           <Text style={styles.title}>Login In to your Account</Text>
         </View>
@@ -131,8 +140,6 @@ const LoginPage = () => {
             <Picker.Item label="Master Admin" value="Master Admin" />
           </Picker>
         </View>
-
-        {/* College Selection */}
         <View style={styles.inputContainer}>
           <Text style={styles.pickerLabel}>College:</Text>
           <Picker
@@ -170,7 +177,6 @@ const LoginPage = () => {
               />
             </View>
           </View>
-
           <View style={styles.inputContainer}>
             <View style={styles.inputWrapper}>
               <AntDesign
@@ -188,23 +194,23 @@ const LoginPage = () => {
               />
             </View>
           </View>
-
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Keep me logged in</Text>
-
-            <Text
-              onPress={() => navigation.navigate("ForgotPassword")}
-              style={styles.forgotPassword}
-            >
+            <Text onPress={handleForgotPassword} style={styles.forgotPassword}>
               Forgot Password
             </Text>
           </View>
-
           <View style={styles.buttonContainer}>
-            <Pressable onPress={handleLogin} style={styles.button}>
-              <Text style={styles.buttonText}>Login</Text>
+            <Pressable
+              onPress={handleLogin}
+              style={styles.button}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.buttonText}>Login</Text>
+              )}
             </Pressable>
-
             <Pressable
               onPress={() => navigation.navigate("Register")}
               style={styles.signupButton}
@@ -226,7 +232,7 @@ export default LoginPage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "white",
+    backgroundColor: "#f5f5f5",
     alignItems: "center",
     marginTop: 50,
   },
@@ -244,7 +250,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   title: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: "bold",
     marginTop: 12,
     color: "#041E42",
@@ -256,7 +262,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#D0D0D0",
+    backgroundColor: "#e0e0e0",
     paddingVertical: 5,
     borderRadius: 5,
   },
@@ -310,244 +316,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   pickerLabel: {
-    color: "#041E42", // Example color
-    fontSize: 16, // Example font size
-    marginBottom: 5, // Example margin bottom
+    color: "#041E42",
+    fontSize: 16,
+    marginBottom: 5,
   },
-
-  // Add styles for picker box
   pickerBox: {
-    backgroundColor: "#D0D0D0", // Example background color
-    borderRadius: 5, // Example border radius
-    paddingHorizontal: 10, // Example padding
-    marginVertical: 10, // Example vertical margin
+    backgroundColor: "#e0e0e0",
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginVertical: 10,
   },
-
-  // Add styles for picker item
   pickerItem: {
-    fontSize: 16, // Example font size
-    color: "gray", // Example color
+    fontSize: 16,
+    color: "gray",
   },
 });
-
-// import React, { useState } from "react";
-// import {
-//   StyleSheet,
-//   Text,
-//   View,
-//   SafeAreaView,
-//   Image,
-//   KeyboardAvoidingView,
-//   TextInput,
-//   Pressable,
-// } from "react-native";
-// import { MaterialIcons } from "@expo/vector-icons";
-// import { AntDesign } from "@expo/vector-icons";
-// import { useNavigation } from "@react-navigation/native";
-// import { Picker } from "@react-native-picker/picker";
-
-// const LoginPage = () => {
-//   const [email, setEmail] = useState("");
-//   const [password, setPassword] = useState("");
-//   const [userType, setUserType] = useState(""); // Added state for user type
-//   const [college, setCollege] = useState(""); // Added state for college
-//   const navigation = useNavigation();
-
-//   //   const handleLogin = () => {
-//   //     // Handle login logic here
-//   //     // You can use email, password, userType, and college states
-//   //   };
-
-//   return (
-//     <SafeAreaView style={styles.container}>
-//       <View>
-//         <Image
-//           style={styles.logo}
-//           source={{
-//             uri: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRNK57Oj5ro7C-aFzfBHXuesubrY8lbH4Bxew&s.png",
-//           }}
-//         />
-//       </View>
-//       {/* User Type Selection */}
-//       <View style={styles.header}>
-//         <Text style={styles.title}>Login In to your Account</Text>
-//       </View>
-//       <View style={styles.inputContainer}>
-//         <Text style={styles.label}>User Type:</Text>
-//         <Picker
-//           selectedValue={userType}
-//           onValueChange={(itemValue, itemIndex) => setUserType(itemValue)}
-//           style={styles.input}
-//         >
-//           <Picker.Item label="Student" value="Student" />
-//           <Picker.Item label="Teacher" value="Teacher" />
-//           <Picker.Item label="Admin" value="Admin" />
-//           <Picker.Item label="Master Admin" value="Master Admin" />
-//         </Picker>
-//       </View>
-
-//       {/* College Selection */}
-//       <View style={styles.inputContainer}>
-//         <Text style={styles.label}>College:</Text>
-//         <Picker
-//           selectedValue={college}
-//           onValueChange={(itemValue, itemIndex) => setCollege(itemValue)}
-//           style={styles.input}
-//         >
-//           <Picker.Item
-//             label="Royal Global University"
-//             value="Royal Global University"
-//           />
-//           <Picker.Item label="Amita University" value="Amita University" />
-//         </Picker>
-//       </View>
-//       <KeyboardAvoidingView>
-//         <View style={styles.inputContainer}>
-//           <View style={styles.inputWrapper}>
-//             <MaterialIcons
-//               style={styles.inputIcon}
-//               name="email"
-//               size={24}
-//               color="gray"
-//             />
-//             <TextInput
-//               value={email}
-//               onChangeText={(text) => setEmail(text)}
-//               style={styles.input}
-//               placeholder="Enter your Email"
-//             />
-//           </View>
-//         </View>
-
-//         <View style={styles.inputContainer}>
-//           <View style={styles.inputWrapper}>
-//             <AntDesign
-//               name="lock1"
-//               size={24}
-//               color="gray"
-//               style={styles.inputIcon}
-//             />
-//             <TextInput
-//               value={password}
-//               onChangeText={(text) => setPassword(text)}
-//               secureTextEntry={true}
-//               style={styles.input}
-//               placeholder="Enter your Password"
-//             />
-//           </View>
-//         </View>
-
-//         <View style={styles.footer}>
-//           <Text style={styles.footerText}>Keep me logged in</Text>
-
-//           <Text style={styles.forgotPassword}>Forgot Password</Text>
-//         </View>
-
-//         <View style={styles.buttonContainer}>
-//           <Pressable
-//             //   onPress={handleLogin}
-//             onPress={() =>
-//               navigation.navigate("OTPVerification", { userType: userType })
-//             }
-//             style={styles.button}
-//           >
-//             <Text style={styles.buttonText}>Login</Text>
-//           </Pressable>
-
-//           <Pressable
-//             onPress={() => navigation.navigate("Register")}
-//             style={styles.signupButton}
-//           >
-//             <Text style={styles.signupButtonText}>
-//               Don't have an account? Sign Up
-//             </Text>
-//           </Pressable>
-//         </View>
-//       </KeyboardAvoidingView>
-//     </SafeAreaView>
-//   );
-// };
-
-// export default LoginPage;
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: "white",
-//     alignItems: "center",
-//     marginTop: 50,
-//   },
-//   logo: {
-//     width: 150,
-//     height: 150,
-//   },
-//   header: {
-//     alignItems: "center",
-//   },
-//   title: {
-//     fontSize: 17,
-//     fontWeight: "bold",
-//     marginTop: 12,
-//     color: "#041E42",
-//   },
-//   inputContainer: {
-//     marginTop: 20,
-//   },
-//   inputWrapper: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     gap: 5,
-//     backgroundColor: "#D0D0D0",
-//     paddingVertical: 5,
-//     borderRadius: 5,
-//   },
-//   inputIcon: {
-//     marginLeft: 8,
-//   },
-//   input: {
-//     color: "gray",
-//     marginVertical: 10,
-//     width: 300,
-//     fontSize: 16,
-//   },
-//   label: {
-//     marginBottom: 5,
-//   },
-//   footer: {
-//     marginTop: 12,
-//     flexDirection: "row",
-//     alignItems: "center",
-//     justifyContent: "space-between",
-//   },
-//   footerText: {
-//     marginLeft: 10,
-//   },
-//   forgotPassword: {
-//     color: "#007FFF",
-//     fontWeight: "500",
-//   },
-//   buttonContainer: {
-//     marginTop: 20,
-//     alignItems: "center",
-//   },
-//   button: {
-//     width: 200,
-//     backgroundColor: "#FEBE10",
-//     borderRadius: 6,
-//     padding: 15,
-//   },
-//   buttonText: {
-//     textAlign: "center",
-//     color: "white",
-//     fontSize: 16,
-//     fontWeight: "bold",
-//   },
-//   signupButton: {
-//     marginTop: 15,
-//   },
-//   signupButtonText: {
-//     textAlign: "center",
-//     color: "gray",
-//     fontSize: 16,
-//   },
-// });

@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
+import { createCourseEntries } from "../../../lib/firebase";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const MAdminCreationScreen = () => {
   const [courseType, setCourseType] = useState("");
@@ -47,34 +49,7 @@ const MAdminCreationScreen = () => {
     setSemesters(updatedSemesters);
   };
 
-  // const handleCreate = () => {
-  //   // Validate all fields are filled
-  //   if (
-  //     !courseType ||
-  //     !school ||
-  //     !department ||
-  //     !semesterCount ||
-  //     semesters.some((semester) =>
-  //       semester.subjects.some(
-  //         (subject) =>
-  //           !subject.name || !subject.code || !subject.credits || !subject.type
-  //       )
-  //     )
-  //   ) {
-  //     alert("Please fill in all details");
-  //     return;
-  //   }
-
-  //   console.log("Creating Database Entries...");
-  //   console.log("Course Type:", courseType);
-  //   console.log("School:", school);
-  //   console.log("Department:", department);
-  //   console.log("Semester Count:", semesterCount);
-  //   console.log("Semesters:", semesters);
-
-  //   // Logic to add database entries
-  // };
-  const handleCreate = () => {
+  const handleCreate = async () => {
     // Validate all fields are filled
     if (
       !courseType ||
@@ -91,16 +66,28 @@ const MAdminCreationScreen = () => {
       alert("Please fill in all details");
       return;
     }
-    console.log("Creating Database Entries...");
-    console.log("Course Type:", courseType);
-    console.log("School:", school);
-    console.log("Department:", department);
-    console.log("Semester Count:", semesterCount);
-    console.log("Semesters:", semesters);
-    // Show alert when entries are created
-    Alert.alert("Entries Created!", "Entries have been successfully created.", [
-      { text: "OK", onPress: () => handleReset() }, // Add a callback to reset the inputs and semesters
-    ]);
+
+    // Prepare data to be saved
+    const data = {
+      courseType,
+      school,
+      department,
+      semesterCount: parseInt(semesterCount),
+      semesters,
+    };
+
+    try {
+      // Save data to Firestore using the imported function
+      await createCourseEntries(data);
+      Alert.alert(
+        "Entries Created!",
+        "Entries have been successfully created.",
+        [{ text: "OK", onPress: () => handleReset() }]
+      );
+    } catch (error) {
+      console.error("Error adding document: ", error);
+      Alert.alert("Error", "There was an error creating the entries.");
+    }
   };
 
   const handleReset = () => {
@@ -112,132 +99,140 @@ const MAdminCreationScreen = () => {
     setSemesters([]);
   };
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>
-        University Management Database Creation
-      </Text>
+    <SafeAreaView>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.heading}>
+          University Management Database Creation
+        </Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Course Type (UG/PG)"
-        onChangeText={(text) => setCourseType(text)}
-        value={courseType}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Course Type (UG/PG)"
+          onChangeText={(text) => setCourseType(text)}
+          value={courseType}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter School Name"
-        onChangeText={(text) => setSchool(text)}
-        value={school}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter School Name"
+          onChangeText={(text) => setSchool(text)}
+          value={school}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Department Name"
-        onChangeText={(text) => setDepartment(text)}
-        value={department}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Department Name"
+          onChangeText={(text) => setDepartment(text)}
+          value={department}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Number of Semesters (1-5)"
-        keyboardType="numeric"
-        onChangeText={(text) => setSemesterCount(text)}
-        value={semesterCount}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Number of Semesters (1-5)"
+          keyboardType="numeric"
+          onChangeText={(text) => setSemesterCount(text)}
+          value={semesterCount}
+        />
 
-      {semesters.map((semester, semesterIndex) => (
-        <View key={`semester-${semesterIndex}`}>
-          <Text style={styles.semesterHeading}>
-            Semester {semester.semesterNumber}
-          </Text>
-          {semester.subjects.map((subject, subjectIndex) => (
-            <View key={`subject-${semesterIndex}-${subjectIndex}`}>
-              <Text style={styles.sectionHeading}>
-                Subject {subjectIndex + 1}
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Subject Name"
-                onChangeText={(text) => {
-                  const updatedSemesters = [...semesters];
-                  updatedSemesters[semesterIndex].subjects[subjectIndex].name =
-                    text;
-                  setSemesters(updatedSemesters);
-                }}
-                value={subject.name}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Subject Code"
-                onChangeText={(text) => {
-                  const updatedSemesters = [...semesters];
-                  updatedSemesters[semesterIndex].subjects[subjectIndex].code =
-                    text;
-                  setSemesters(updatedSemesters);
-                }}
-                value={subject.code}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Subject Credits"
-                onChangeText={(text) => {
-                  const updatedSemesters = [...semesters];
-                  updatedSemesters[semesterIndex].subjects[
-                    subjectIndex
-                  ].credits = text;
-                  setSemesters(updatedSemesters);
-                }}
-                value={subject.credits}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter Subject Type"
-                onChangeText={(text) => {
-                  const updatedSemesters = [...semesters];
-                  updatedSemesters[semesterIndex].subjects[subjectIndex].type =
-                    text;
-                  setSemesters(updatedSemesters);
-                }}
-                value={subject.type}
-              />
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleDeleteSubject(semesterIndex, subjectIndex)}
-              >
-                <Text>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => handleAddSubject(semesterIndex)}
-          >
-            <Text>Add Subject</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.deleteSemesterButton}
-            onPress={() => handleDeleteSemester(semesterIndex)}
-          >
-            <Text>Delete Semester</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
+        {semesters.map((semester, semesterIndex) => (
+          <View key={`semester-${semesterIndex}`}>
+            <Text style={styles.semesterHeading}>
+              Semester {semester.semesterNumber}
+            </Text>
+            {semester.subjects.map((subject, subjectIndex) => (
+              <View key={`subject-${semesterIndex}-${subjectIndex}`}>
+                <Text style={styles.sectionHeading}>
+                  Subject {subjectIndex + 1}
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter Subject Name"
+                  onChangeText={(text) => {
+                    const updatedSemesters = [...semesters];
+                    updatedSemesters[semesterIndex].subjects[
+                      subjectIndex
+                    ].name = text;
+                    setSemesters(updatedSemesters);
+                  }}
+                  value={subject.name}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter Subject Code"
+                  onChangeText={(text) => {
+                    const updatedSemesters = [...semesters];
+                    updatedSemesters[semesterIndex].subjects[
+                      subjectIndex
+                    ].code = text;
+                    setSemesters(updatedSemesters);
+                  }}
+                  value={subject.code}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter Subject Credits"
+                  onChangeText={(text) => {
+                    const updatedSemesters = [...semesters];
+                    updatedSemesters[semesterIndex].subjects[
+                      subjectIndex
+                    ].credits = text;
+                    setSemesters(updatedSemesters);
+                  }}
+                  value={subject.credits}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter Subject Type"
+                  onChangeText={(text) => {
+                    const updatedSemesters = [...semesters];
+                    updatedSemesters[semesterIndex].subjects[
+                      subjectIndex
+                    ].type = text;
+                    setSemesters(updatedSemesters);
+                  }}
+                  value={subject.type}
+                />
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() =>
+                    handleDeleteSubject(semesterIndex, subjectIndex)
+                  }
+                >
+                  <Text>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => handleAddSubject(semesterIndex)}
+            >
+              <Text>Add Subject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteSemesterButton}
+              onPress={() => handleDeleteSemester(semesterIndex)}
+            >
+              <Text>Delete Semester</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
 
-      <TouchableOpacity style={styles.addButton} onPress={handleAddSemester}>
-        <Text>Add Semester</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.addButton} onPress={handleAddSemester}>
+          <Text>Add Semester</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button} onPress={handleCreate}>
-        <Text>Create Entries</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity style={styles.button} onPress={handleCreate}>
+          <Text>Create Entries</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    paddingLeft: 10,
+    paddingRight: 10,
     backgroundColor: "#f0f0f0",
   },
   heading: {

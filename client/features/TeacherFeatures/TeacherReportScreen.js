@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { StyleSheet, Text, View, TextInput, Button, Modal } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import { db } from "../../../lib/firebase";
+import { collection, addDoc, serverTimestamp, getDocs, where, query } from "firebase/firestore";
+import { getAuth } from "firebase/auth"; // Import Firebase Auth to get current user
 
 const TeacherReportScreen = () => {
   const [reportType, setReportType] = useState("");
@@ -23,33 +26,76 @@ const TeacherReportScreen = () => {
     "Report Non-Technical",
   ];
 
-  const senderTypes = ["Admin", "Master Admin"];
+  const senderTypes = ["Teacher"];
 
-  const submitReport = () => {
+  const submitReport = async () => {
     if (!reportType || !senderType || !description) {
       setShowErrorAlert(true);
       return;
     }
-
-    // Logic to save report in the database and send it to the respective recipient
+  
+    const auth = getAuth();
+    const user = auth.currentUser;
+  
+    console.log(user);
+  
+    if (!user) {
+      Alert.alert("Error", "User not authenticated");
+      return;
+    }
+  
+    let adminName = "";
+    try {
+      const studentCollection = collection(db, "Students");
+      const studentDocs = await getDocs(studentCollection);
+      for (const studentDoc of studentDocs.docs) {
+        const authCollection = collection(db, "Students", studentDoc.id, "auth");
+  
+        const q = query(authCollection, where("isApproved", "==", true));
+        const querySnapshot = await getDocs(q);
+  
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          console.log(data, "data")
+          adminName = data.name
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching student data:", error);
+      Alert.alert("Error", "Failed to fetch student data");
+      return;
+    }
+  
+    // Prepare report data
     const reportData = {
       reportType,
       senderType,
       description,
-      submissionDate: new Date().toLocaleString(), // Adding real-time date and time
+      submissionDate: serverTimestamp(),
+      studentUID: user.uid,
+      adminName: adminName, // Include student's name in report data
     };
-
-    setShowSuccessAlert(true);
-
-    // Reset inputs
-    setReportType("");
-    setSenderType("");
-    setDescription("");
-
-    // For now, logging the report data in console
-    console.log(JSON.stringify(reportData));
+  
+    try {
+      // Save the report to Firestore subcollection under the authenticated student's document
+      const userDocRef = await addDoc(collection(db, "Students"), {});
+      await addDoc(
+        collection(db, "Students", userDocRef.id, "reports"),
+        reportData
+      );
+      setShowSuccessAlert(true);
+  
+      // Reset inputs
+      setReportType("");
+      setSenderType("");
+      setDescription("");
+    } catch (error) {
+      console.error("Error saving report to Firestore:", error);
+      Alert.alert("Error", "Failed to submit the report. Please try again.");
+    }
   };
-
+  
+  
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Student Report</Text>

@@ -13,17 +13,17 @@ const AdminAssignedView = () => {
   const [assignments, setAssignments] = useState([]);
   const [filteredAssignments, setFilteredAssignments] = useState([]);
 
-  useEffect(() => {
-    const fetchAssignments = async () => {
-      try {
-        const response = await axios.get("https://your-api-url/assignments");
-        setAssignments(response.data);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    fetchAssignments();
-  }, []);
+  // useEffect(() => {
+  //   const fetchAssignments = async () => {
+  //     try {
+  //       const response = await axios.get("https://your-api-url/assignments");
+  //       setAssignments(response.data);
+  //     } catch (error) {
+  //       console.error(error);
+  //     }
+  //   };
+  //   fetchAssignments();
+  // }, []);
 
   const handleSearch = (query) => {
     setSearchQuery(query);

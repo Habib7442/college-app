@@ -1,84 +1,299 @@
-import React, { useState } from "react";
-import { View, Text, FlatList, StyleSheet } from "react-native";
-import SearchStudentAttendance from "./SearchStudentAttendance"; // Assuming SearchStudentAttendance.js is in the same directory
-
-// Sample student attendance data
-import StudentAttendanceData from "../../database/StudentAttendance.json";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  Button,
+  Alert,
+  Image,
+  Platform,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
+import { Picker } from "@react-native-picker/picker";
+import * as ImagePicker from "expo-image-picker";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  where,
+  writeBatch,
+} from "firebase/firestore";
+import { db, storage } from "../../../lib/firebase"; // Adjust the import path as needed
+import * as MailComposer from "expo-mail-composer";
+import * as FileSystem from "expo-file-system";
+import Checkbox from "expo-checkbox";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getAuth } from "firebase/auth";
 
 const TeacherAttendanceViewScreen = () => {
-  const [searchResults, setSearchResults] = useState([]);
+  const [semester, setSemester] = useState("");
+  const [department, setDepartment] = useState("");
+  const [subject, setSubject] = useState("");
+  const [students, setStudents] = useState([]);
+  const [filteredStudents, setFilteredStudents] = useState([]);
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [photo, setPhoto] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Loading state
+  const [refreshing, setRefreshing] = useState(false); // Refresh state
 
-  const searchStudents = (searchParams) => {
-    // Perform search filtering based on search parameters
-    const results = StudentAttendanceData.filter((student) => {
-      return (
-        (searchParams.semester === "" ||
-          student.semester === searchParams.semester) &&
-        (searchParams.department === "" ||
-          student.departmentName === searchParams.department) &&
-        (searchParams.subject === "" ||
-          student.subjectName === searchParams.subject) &&
-        (searchParams.studentName === "" ||
-          student.studentName === searchParams.studentName)
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      const studentCollection = collection(db, "Students");
+      const studentDocs = await getDocs(studentCollection);
+
+      const fetchedStudents = [];
+
+      for (const studentDoc of studentDocs.docs) {
+        const authCollection = collection(
+          db,
+          "Students",
+          studentDoc.id,
+          "auth"
+        );
+        const q = query(authCollection, where("isApproved", "==", true));
+        const querySnapshot = await getDocs(q);
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          fetchedStudents.push({
+            id: studentDoc.id,
+            authId: doc.id,
+            ...data,
+          });
+        });
+      }
+      setStudents(fetchedStudents);
+      setFilteredStudents(fetchedStudents); // Set filtered students to all students initially
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    }
+  };
+
+  const handleFilterStudents = () => {
+    if (department) {
+      const filtered = students.filter(
+        (student) =>
+          student.department.toLowerCase() === department.toLowerCase()
       );
-    });
-    setSearchResults(results);
+      setFilteredStudents(filtered);
+    } else {
+      setFilteredStudents(students); // Reset to all students if no department is selected
+    }
   };
 
-  // Function to calculate attendance percentage
-  const calculateAttendancePercentage = (absent, present) => {
-    const total = absent + present;
-    if (total === 0) return 0;
-    return ((present / total) * 100).toFixed(2);
+  const resetFilter = async () => {
+    setDepartment("");
+    await fetchStudents(); // Ensure the data is fetched again
+    setFilteredStudents(students); // Reset filtered students to all students
   };
+
+  const handleCapturePhoto = async () => {
+    let result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.cancelled) {
+      setPhoto(result.assets[0].uri);
+    }
+  };
+
+  const submitAttendance = async () => {
+    setIsSubmitting(true); // Start loading state
+    let imageUrl = "";
+    let imageUri = "";
+
+    if (photo) {
+      const response = await fetch(photo);
+      const blob = await response.blob();
+      const imageRef = ref(
+        storage,
+        `attendance/${Date.now()}-${Math.random().toString(36)}`
+      );
+      await uploadBytes(imageRef, blob);
+      imageUrl = await getDownloadURL(imageRef);
+
+      // Handle file URI for Android
+      if (Platform.OS === "android") {
+        const downloadedFile =
+          FileSystem.cacheDirectory + "attendancePhoto.jpg";
+        const { uri } = await FileSystem.downloadAsync(
+          imageUrl,
+          downloadedFile
+        );
+        imageUri = uri;
+      } else {
+        imageUri = imageUrl;
+      }
+    }
+
+    const emailBody = `Dear Student,
+  
+  Your attendance has been taken successfully for the subject: ${subject}.
+  
+  Regards,
+  Teacher`;
+
+    const emailOptions = {
+      recipients: selectedStudents.map((student) => student.email),
+      subject: "Attendance Confirmation",
+      body: emailBody,
+      attachments: imageUri ? [imageUri] : [],
+    };
+
+    try {
+      const result = await MailComposer.composeAsync(emailOptions);
+      if (result.status === "sent") {
+        console.log("Emails sent to all selected students");
+      } else {
+        console.log("Email sending cancelled or failed");
+      }
+    } catch (error) {
+      console.error("Error sending emails:", error);
+    }
+
+    // Save attendance data for selected students
+    const attendanceData = {
+      subject,
+      date: new Date(),
+      imageUrl: imageUrl || null,
+    };
+
+    const batch = writeBatch(db);
+    selectedStudents.forEach((student) => {
+      const attendanceRef = doc(
+        db,
+        "Students",
+        student.id,
+        "attendance",
+        Date.now().toString()
+      );
+      const studentAttendanceData = {
+        ...attendanceData,
+        email: student.email,
+      };
+      batch.set(attendanceRef, studentAttendanceData);
+    });
+
+    await batch.commit();
+
+    setSelectedStudents([]);
+    setPhoto(null);
+    setIsSubmitting(false); // End loading state
+
+    Alert.alert(
+      "Attendance Submitted",
+      "Attendance has been successfully submitted."
+    );
+  };
+
+  const handleStudentSelection = (student) => {
+    const index = selectedStudents.findIndex(
+      (selected) => selected.id === student.id
+    );
+    if (index !== -1) {
+      const updatedSelectedStudents = [...selectedStudents];
+      updatedSelectedStudents.splice(index, 1);
+      setSelectedStudents(updatedSelectedStudents);
+    } else {
+      setSelectedStudents([...selectedStudents, student]);
+    }
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchStudents();
+    setRefreshing(false);
+  }, []);
 
   return (
     <View style={styles.container}>
-      <SearchStudentAttendance onSearch={searchStudents} />
-      <Text style={styles.headerText}>Search Results:</Text>
+      <View style={styles.pickerContainer}>
+        <Text>Select Department:</Text>
+        <Picker
+          selectedValue={department}
+          onValueChange={(itemValue, itemIndex) => {
+            setDepartment(itemValue);
+            handleFilterStudents(); // Update filter when department changes
+          }}
+          style={styles.picker}
+        >
+          <Picker.Item label="Select Department" value="" />
+          <Picker.Item label="CSE" value="cse" />
+          <Picker.Item label="ECE" value="ece" />
+          <Picker.Item label="CE" value="ce" />
+          <Picker.Item label="ME" value="me" />
+          {/* Add more departments as needed */}
+        </Picker>
+        <Button title="Filter" onPress={handleFilterStudents} />
+        <Button title="Reset Filter" onPress={resetFilter} />
+      </View>
       <FlatList
-        data={searchResults}
+        data={filteredStudents}
         keyExtractor={(item, index) => index.toString()}
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <Text style={styles.subjectName}>{item.subjectName}</Text>
-            <Text>{`Student Name: ${item.studentName}`}</Text>
-            <Text>{`Department: ${item.departmentName}`}</Text>
-            <Text>{`Semester: ${item.semester}`}</Text>
-            <View style={styles.attendanceRow}>
-              <View style={[styles.attendanceItem, styles.absent]}>
-                <Text
-                  style={styles.attendanceText}
-                >{`Absent: ${item.absent}`}</Text>
-              </View>
-              <View style={[styles.attendanceItem, styles.present]}>
-                <Text
-                  style={styles.attendanceText}
-                >{`Present: ${item.present}`}</Text>
-              </View>
+            <View style={styles.studentInfo}>
+              <Text>{`Student Name: ${item.name}`}</Text>
+              <Text>{`Department: ${item.department}`}</Text>
+              <Text>{`Roll No: ${item.rollNumber}`}</Text>
             </View>
-            <View style={styles.attendanceContainer}>
-              <Text style={styles.attendanceLabel}>Subject Attendance</Text>
-              <Text style={styles.percentage}>
-                {calculateAttendancePercentage(item.absent, item.present)}%
-              </Text>
-            </View>
-            <View style={styles.progressContainer}>
-              <View
-                style={[
-                  styles.progressBar,
-                  {
-                    width: `${calculateAttendancePercentage(
-                      item.absent,
-                      item.present
-                    )}%`,
-                  },
-                ]}
+            <View style={styles.checkboxContainer}>
+              <Checkbox
+                value={selectedStudents.some(
+                  (student) => student.id === item.id
+                )}
+                onValueChange={() => handleStudentSelection(item)}
               />
             </View>
+            <Image
+              style={styles.studentImage}
+              source={{ uri: item.imageUrl }}
+            />
           </View>
         )}
+        ListHeaderComponent={() => (
+          <View style={styles.container}>
+            <View style={styles.pickerContainer}>
+              <Text>Select Subject:</Text>
+              <Picker
+                selectedValue={subject}
+                onValueChange={(itemValue, itemIndex) => setSubject(itemValue)}
+                style={styles.picker}
+              >
+                <Picker.Item label="Select Subject" value="" />
+                <Picker.Item label="Subject 1" value="Subject 1" />
+                <Picker.Item label="Subject 2" value="Subject 2" />
+                {/* Add more subjects as needed */}
+              </Picker>
+            </View>
+
+            {photo && (
+              <Image source={{ uri: photo }} style={styles.imagePreview} />
+            )}
+          </View>
+        )}
+        ListEmptyComponent={() => <Text>No data found</Text>}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
+      <Button title="Take Attendance Photo" onPress={handleCapturePhoto} />
+      <Button
+        title={isSubmitting ? "Submitting..." : "Submit Attendance"}
+        onPress={submitAttendance}
+        disabled={isSubmitting}
+      />
+      {isSubmitting && <ActivityIndicator size="large" color="#0000ff" />}
     </View>
   );
 };
@@ -90,130 +305,47 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  headerText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 10,
-    marginBottom: 5,
+  pickerContainer: {
+    marginBottom: 20,
+  },
+  picker: {
+    height: 50,
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#ccc",
   },
   card: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#fff",
     borderRadius: 10,
     padding: 20,
     marginBottom: 20,
     elevation: 3,
   },
-  subjectName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
+  studentInfo: {
+    flex: 1,
   },
-  attendanceRow: {
-    flexDirection: "row",
-    marginBottom: 10,
+  checkboxContainer: {
+    marginRight: 10, // Adjust as needed
   },
-  attendanceItem: {
-    borderRadius: 5,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    marginHorizontal: 5,
-    alignItems: "center",
-    justifyContent: "center",
+  studentImage: {
+    width: 50, // Adjust width and height as needed
+    height: 50,
+    borderRadius: 25, // Make it a circle
   },
-  absent: {
-    backgroundColor: "red",
+  imagePreview: {
+    width: "100%",
+    height: 200,
+    resizeMode: "cover",
+    marginBottom: 16,
+    borderRadius: 8,
   },
-  present: {
-    backgroundColor: "green",
-  },
-  attendanceText: {
-    color: "#fff",
-  },
-  attendanceContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  attendanceLabel: {
-    color: "#000",
-    fontWeight: "bold",
-  },
-  progressContainer: {
-    height: 10,
-    backgroundColor: "#f2f2f2",
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  progressBar: {
-    height: 10,
-    backgroundColor: "blue",
-    borderRadius: 5,
-  },
-  percentage: {
-    textAlign: "center",
+  photoPreview: {
+    width: "100%",
+    height: 200,
+    resizeMode: "cover",
+    marginVertical: 16,
+    borderRadius: 8,
   },
 });
-
-// import React, { useState } from "react";
-// import { View, Text, FlatList } from "react-native";
-// import SearchStudentAttendance from "./SearchStudentAttendance"; // Assuming SearchStudentAttendance.js is in the same directory
-
-// // Sample student attendance data
-// import StudentAttendanceData from "../../database/StudentAttendance.json";
-
-// const TeacherAttendanceViewScreen = () => {
-//   const [searchResults, setSearchResults] = useState([]);
-
-//   const searchStudents = (searchParams) => {
-//     // Perform search filtering based on search parameters
-//     const results = StudentAttendanceData.filter((student) => {
-//       return (
-//         (searchParams.semester === "" ||
-//           student.semester === searchParams.semester) &&
-//         (searchParams.department === "" ||
-//           student.departmentName === searchParams.department) &&
-//         (searchParams.subject === "" ||
-//           student.subjectName === searchParams.subject) &&
-//         (searchParams.studentName === "" ||
-//           student.studentName === searchParams.studentName)
-//       );
-//     });
-//     setSearchResults(results);
-//   };
-
-//   return (
-//     <View>
-//       <SearchStudentAttendance onSearch={searchStudents} />
-//       <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold" }}>
-//         Search Results:
-//       </Text>
-//       <FlatList
-//         data={searchResults}
-//         keyExtractor={(item, index) => index.toString()}
-//         renderItem={({ item }) => (
-//           <View style={{ marginVertical: 5 }}>
-//             <Text>
-//               <Text style={{ fontWeight: "bold" }}>Student Name:</Text>{" "}
-//               {item.studentName}
-//             </Text>
-//             <Text>
-//               <Text style={{ fontWeight: "bold" }}>Department:</Text>{" "}
-//               {item.departmentName}
-//             </Text>
-//             <Text>
-//               <Text style={{ fontWeight: "bold" }}>Subject:</Text>{" "}
-//               {item.subjectName}
-//             </Text>
-//             <Text>
-//               <Text style={{ fontWeight: "bold" }}>Semester:</Text>{" "}
-//               {item.semester}
-//             </Text>
-//           </View>
-//         )}
-//       />
-//     </View>
-//   );
-// };
-
-// export default TeacherAttendanceViewScreen;

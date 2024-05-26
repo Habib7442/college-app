@@ -82,35 +82,3 @@ const styles = StyleSheet.create({
 
 export default EventTimetableScreen;
 
-// import React from "react";
-// import { View, Text } from "react-native";
-// import calendarData from "../../database/calendar.json";
-
-// const daysOfWeek = [
-//   "Sunday",
-//   "Monday",
-//   "Tuesday",
-//   "Wednesday",
-//   "Thursday",
-//   "Friday",
-//   "Saturday",
-// ];
-
-// const EventTimetableScreen = ({ dayIndex }) => {
-//   const day = daysOfWeek[dayIndex];
-
-//   return (
-//     <View>
-//       <Text>{day}</Text>
-//       {calendarData[day].map((event, index) => (
-//         <View key={index}>
-//           <Text>{event.eventName}</Text>
-//           <Text>Date: {event.date}</Text>
-//           <Text>Description: {event.description}</Text>
-//         </View>
-//       ))}
-//     </View>
-//   );
-// };
-
-// export default EventTimetableScreen;

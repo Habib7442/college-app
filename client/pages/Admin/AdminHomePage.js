@@ -17,37 +17,14 @@ import {
   ScrollView,
   Image,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const AdminHomePage = ({ route }) => {
   const navigation = useNavigation();
 
   const dispatch = useDispatch();
   const isFocused = useIsFocused();
-  // const handleLogout = () => {
-  //   Alert.alert(
-  //     "Logout",
-  //     "Are you sure you want to logout?",
-  //     [
-  //       {
-  //         text: "Cancel",
-  //         onPress: () => null,
-  //         style: "cancel",
-  //       },
-  //       { text: "Logout", onPress: () => handleLogoutConfirmation() },
-  //     ],
-  //     { cancelable: false }
-  //   );
-  // };
-
-  // const handleLogoutConfirmation = () => {
-  //   dispatch(logout());
-  //   navigation.dispatch(
-  //     CommonActions.reset({
-  //       index: 0,
-  //       routes: [{ name: "Login" }],
-  //     })
-  //   );
-  // };
+  
   const handleBackPress = () => {
     if (isFocused) {
       Alert.alert(
@@ -99,11 +76,12 @@ const AdminHomePage = ({ route }) => {
   };
 
   return (
+    <SafeAreaView style={styles.safeArea}>
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={openDrawer} style={styles.iconContainer}>
-            <Ionicons name="md-menu" size={30} color="white" />
+            <Ionicons name="menu" size={30} color="white" />
           </TouchableOpacity>
 
           <Text style={styles.headerText}>My College App</Text>
@@ -111,7 +89,7 @@ const AdminHomePage = ({ route }) => {
             onPress={handleNotifications}
             style={styles.iconContainer}
           >
-            <Ionicons name="md-notifications" size={30} color="white" />
+            <Ionicons name="notifications" size={30} color="white" />
           </TouchableOpacity>
         </View>
 
@@ -177,21 +155,39 @@ const AdminHomePage = ({ route }) => {
         </View>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    // backgroundColor: "#f0f0f0",
-    backgroundColor: "#FFFF8F",
+    backgroundColor: "#F5F5F5",
   },
   scrollContainer: {
     flexGrow: 1,
   },
+  container: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+  },
+  header: {
+    padding: 20,
+    backgroundColor: "#FF6347",
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  headerText: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  iconContainer: {
+    padding: 5,
+  },
   bigCard: {
     margin: 20,
-
     width: "90%",
     aspectRatio: 2,
     backgroundColor: "#fff",
@@ -227,26 +223,10 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
     position: "absolute",
   },
-  header: {
-    padding: 20,
-    backgroundColor: "#FFC000",
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  headerText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  iconContainer: {
-    padding: 5,
-  },
   card: {
     width: "40%",
     aspectRatio: 1,
-    // backgroundColor: "#fff",
-    backgroundColor: "#FFEA00",
+    backgroundColor: "#FF6347",
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
@@ -263,134 +243,19 @@ const styles = StyleSheet.create({
   cardText: {
     fontSize: 18,
     fontWeight: "bold",
+    color: "#fff",
   },
   features: {
     padding: 10,
-
     alignItems: "center",
   },
   featuresText: {
     fontSize: 30,
     fontWeight: "bold",
-    color: "gray",
+    color: "#FF6347",
   },
 });
 
 export default AdminHomePage;
 
-// import React from "react";
-// import {
-//   View,
-//   Text,
-//   TouchableOpacity,
-//   StyleSheet,
-//   ScrollView,
-// } from "react-native";
 
-// const AdminHomePage = () => {
-//   return (
-//     <ScrollView contentContainerStyle={styles.scrollContainer}>
-//       <View style={styles.container}>
-//         <View style={styles.header}>
-//           <Text style={styles.headerText}>My College App</Text>
-//         </View>
-//         <TouchableOpacity style={styles.bigCard}>
-//           <Text style={styles.bigCardText}>Big Card</Text>
-//         </TouchableOpacity>
-//         <View style={styles.cards}>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Notice Management</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Timetable Creation</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Attendance Management</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Calendar</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Library</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Report</Text>
-//           </TouchableOpacity>
-//         </View>
-//       </View>
-//     </ScrollView>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: "#f0f0f0",
-//   },
-//   scrollContainer: {
-//     flexGrow: 1,
-//   },
-//   bigCard: {
-//     margin: 20,
-
-//     width: "90%",
-//     aspectRatio: 2, // Maintain aspect ratio
-//     backgroundColor: "#fff",
-//     borderRadius: 20,
-//     justifyContent: "center",
-//     alignItems: "center",
-//     marginBottom: 10,
-//     shadowColor: "#000",
-//     shadowOffset: {
-//       width: 0,
-//       height: 2,
-//     },
-//     shadowOpacity: 0.25,
-//     shadowRadius: 3.84,
-//     elevation: 5,
-//   },
-//   bigCardText: {
-//     fontSize: 24,
-//     fontWeight: "bold",
-//   },
-//   cards: {
-//     flexDirection: "row",
-//     flexWrap: "wrap",
-//     justifyContent: "center",
-//     alignItems: "center",
-//     padding: 10,
-//   },
-//   header: {
-//     padding: 20,
-//     backgroundColor: "#007FFF",
-//     alignItems: "center",
-//   },
-//   headerText: {
-//     fontSize: 24,
-//     fontWeight: "bold",
-//     color: "#fff",
-//   },
-//   card: {
-//     width: "40%",
-//     aspectRatio: 1, // Maintain aspect ratio
-//     backgroundColor: "#fff",
-//     borderRadius: 20,
-//     justifyContent: "center",
-//     alignItems: "center",
-//     margin: 5,
-//     shadowColor: "#000",
-//     shadowOffset: {
-//       width: 0,
-//       height: 2,
-//     },
-//     shadowOpacity: 0.25,
-//     shadowRadius: 3.84,
-//     elevation: 5,
-//   },
-//   cardText: {
-//     fontSize: 18,
-//     fontWeight: "bold",
-//   },
-// });
-
-// export default AdminHomePage;

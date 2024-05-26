@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,77 +6,185 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Modal,
+  Alert,
 } from "react-native";
 import { TabView, TabBar } from "react-native-tab-view";
 import moment from "moment";
-// import axios from "axios";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+} from "firebase/firestore";
+import { db } from "../../../lib/firebase"; // Ensure you import your Firebase configuration
+import { getAuth } from "firebase/auth";
+import { RefreshControl } from "react-native";
 
-// import TimetableCard from "./TimetableCard";
+const TimetableCard = ({
+  startTime,
+  endTime,
+  subjectName,
+  teacherName,
+  start,end,
+  onEdit,
+  onDelete,
+  slot,
+}) => (
+  <View style={styles.timetableCard}>
+    <View style={styles.timetableCardContent}>
+      <Text style={styles.timetableCardText}>
+        Subject: {subjectName}
+      </Text>
+      <Text style={styles.timetableCardText}>
+        Start Time: {start}
+      </Text>
+      <Text style={styles.timetableCardText}>
+        End Time: {end}
+      </Text>
+      <Text style={styles.timetableCardText}>
+        Teacher: {teacherName}
+      </Text>
+    </View>
+    <View style={styles.timetableCardActions}>
+      {/* Uncomment the following lines if you want to enable editing */}
+      {/* <TouchableOpacity style={styles.editButton} onPress={() => onEdit(slot)}>
+        <Text style={styles.buttonText}>Edit</Text>
+      </TouchableOpacity> */}
+      {/* <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => onDelete(slot)}
+      >
+        <Text style={styles.buttonText}>Delete</Text>
+      </TouchableOpacity> */}
+    </View>
+  </View>
+);
 
 const AdminTimetableView = () => {
   const [schoolName, setSchoolName] = useState("");
   const [departmentName, setDepartmentName] = useState("");
   const [semester, setSemester] = useState("");
-  const [events, setEvents] = useState([]);
   const [timetable, setTimetable] = useState([]);
-  const [teachers, setTeachers] = useState([]);
   const [index, setIndex] = useState(0);
+  const [editingSlot, setEditingSlot] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // useEffect(() => {
-  //   const fetchEvents = async () => {
-  //     try {
-  //       const response = await axios.get(
-  //         "https://your-api-url/calendar/events"
-  //       );
-  //       setEvents(response.data);
-  //     } catch (error) {
-  //       console.error(error);
-  //     }
-  //   };
+  const fetchTimetable = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
 
-  //   const fetchTimetable = async () => {
-  //     try {
-  //       const response = await axios.get(
-  //         "https://your-api-url/timetable"
-  //       );
-  //       setTimetable(response.data);
-  //     } catch (error) {
-  //       console.error(error);
-  //     }
-  //   };
+      if (!user) {
+        console.error("User not authenticated");
+        return;
+      }
 
-  //   const fetchTeachers = async () => {
-  //     try {
-  //       const response = await axios.get(
-  //         "https://your-api-url/teachers"
-  //       );
-  //       setTeachers(response.data);
-  //     } catch (error) {
-  //       console.error(error);
-  //     }
-  //   };
+      const timetablesCollection = collection(
+        db,
+        "Admins",
+        user?.uid,
+        "timetables"
+      );
+      const timetableQuery = query(timetablesCollection);
+      const timetableSnapshot = await getDocs(timetableQuery);
 
-  //   fetchEvents();
-  //   fetchTimetable();
-  //   fetchTeachers();
-  // }, []);
+      const timetableData = timetableSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setTimetable(timetableData);
+    } catch (error) {
+      console.error("Error fetching timetable: ", error);
+    }
+  };
+  useEffect(() => {
+    fetchTimetable();
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchTimetable().then(() => setRefreshing(false));
+  }, []);
 
   const handleFilter = () => {
-    const filteredEvents = events.filter(
-      (event) =>
-        event.title.includes(schoolName) &&
-        event.description.includes(departmentName) &&
-        event.description.includes(semester)
-    );
-
     const filteredTimetable = timetable.filter(
       (timetable) =>
         timetable.department === departmentName &&
         timetable.semester === semester
     );
 
-    setEvents(filteredEvents);
     setTimetable(filteredTimetable);
+  };
+
+  const handleEdit = (slot) => {
+    setEditingSlot(slot);
+    setModalVisible(true);
+  };
+
+  const handleDelete = (slot) => {
+    Alert.alert(
+      "Delete Timetable Slot",
+      "Are you sure you want to delete this timetable slot?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          onPress: () => deleteSlot(slot),
+          style: "destructive",
+        },
+      ]
+    );
+  };
+
+  const deleteSlot = async (slot) => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (!user) {
+        console.error("User not authenticated");
+        return;
+      }
+
+      const timetableDocRef = doc(
+        db,
+        "Admins",
+        user?.uid,
+        "timetables",
+        slot.timetableId
+      );
+      const timetableDoc = await getDocs(timetableDocRef);
+      const timetableData = timetableDoc.data();
+
+      const updatedTimetable = timetableData.timetable.filter(
+        (t) => t !== slot
+      );
+
+      await updateDoc(timetableDocRef, { timetable: updatedTimetable });
+
+      setTimetable((prevTimetable) =>
+        prevTimetable.map((timetable) =>
+          timetable.id === slot.timetableId
+            ? { ...timetable, timetable: updatedTimetable }
+            : timetable
+        )
+      );
+    } catch (error) {
+      console.error("Error deleting timetable slot: ", error);
+      Alert.alert(
+        "Error",
+        "Failed to delete timetable slot. Please try again."
+      );
+    }
   };
 
   const routes = [
@@ -99,44 +207,41 @@ const AdminTimetableView = () => {
   );
 
   const renderTabView = ({ navigationState }) => {
-    const dayEvents = events.filter(
-      (event) =>
-        moment(event.startTime).format("dddd") === moment().format("dddd")
-    );
-
     const dayTimetable = timetable.filter(
       (timetable) =>
-        moment(timetable.startTime).format("dddd") === moment().format("dddd")
+        moment(timetable.createdAt).format("dddd") === moment().format("dddd")
     );
 
-    const dayTeachers = teachers.filter(
-      (teacher) =>
-        moment(teacher.timetable.startTime).format("dddd") ===
-        moment().format("dddd")
-    );
+    console.log(dayTimetable)
 
     return (
       <View style={styles.container}>
-        <View style={styles.eventNotification}>
-          {dayEvents.length > 0 &&
-            dayEvents.map((event) => (
-              <View key={event.id}>
-                <Text style={styles.eventName}>{event.title}</Text>
-                {event.isHoliday ? (
-                  <Text style={styles.eventDescription}>
-                    Institution is closed
-                  </Text>
-                ) : (
-                  <Text style={styles.eventDescription}>
-                    Regular classes will be held
-                  </Text>
-                )}
-              </View>
-            ))}
-        </View>
-        <ScrollView style={styles.timetableContainer}>
-          {/* Here, you should map through `dayTimetable` and render `TimetableCard` components */}
+        <ScrollView
+          style={styles.timetableContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {dayTimetable.map((timetable, index) => (
+            <View key={index}>
+              {timetable.timetable.map((slot, slotIndex) => (
+                <TimetableCard
+                  key={slotIndex}
+                  duration={`${slot.start} - ${slot.end}`}
+                  subjectName={slot.subject}
+                  teacherName={slot.teacher || "N/A"}
+                  end={slot.end}
+                  start={slot.start}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  slot={{ ...slot, timetableId: timetable.id }}
+                />
+              ))}
+            </View>
+          ))}
         </ScrollView>
+        {/* Add Modal for editing slots */}
+        
       </View>
     );
   };
@@ -144,12 +249,6 @@ const AdminTimetableView = () => {
   return (
     <View style={styles.container}>
       <View style={styles.filterContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="School Name"
-          value={schoolName}
-          onChangeText={setSchoolName}
-        />
         <TextInput
           style={styles.input}
           placeholder="Department Name"
@@ -183,304 +282,100 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    justifyContent: "space-around",
+    alignItems: "center",
+    marginVertical: 10,
   },
   input: {
-    width: "30%",
+    flex: 1,
     height: 40,
-    borderColor: "#ccc",
+    borderColor: "gray",
     borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
+    marginHorizontal: 5,
+    paddingHorizontal: 10,
   },
   button: {
     backgroundColor: "#007bff",
+    paddingHorizontal: 10,
     paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
+    borderRadius: 5,
   },
   buttonText: {
     color: "#fff",
     fontWeight: "bold",
   },
-  eventNotification: {
-    padding: 16,
-    backgroundColor: "#f5f5f5",
-  },
-  eventName: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  eventDescription: {
-    fontSize: 14,
-    color: "#666",
-  },
   timetableContainer: {
     flex: 1,
-    padding: 16,
+    padding: 10,
+  },
+  timetableCard: {
+    backgroundColor: "#f2f2f2",
+    marginVertical: 5,
+    borderRadius: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 10,
+  },
+  timetableCardContent: {
+    flex: 1,
+  },
+  timetableCardText: {
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  timetableCardActions: {
+    flexDirection: "row",
+  },
+  editButton: {
+    backgroundColor: "#28a745",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+    marginRight: 5,
+  },
+  deleteButton: {
+    backgroundColor: "#dc3545",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 22,
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 35,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  openButton: {
+    backgroundColor: "#F194FF",
+    borderRadius: 20,
+    padding: 10,
+    elevation: 2,
+  },
+  textStyle: {
+    color: "white",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  modalText: {
+    marginBottom: 15,
+    textAlign: "center",
   },
 });
 
 export default AdminTimetableView;
-
-// import React, { useState, useEffect } from "react";
-// import {
-//   View,
-//   Text,
-//   TextInput,
-//   TouchableOpacity,
-//   ScrollView,
-//   StyleSheet,
-//   Alert,
-// } from "react-native";
-// import { TabView, TabBar } from "react-native-tab-view";
-// import { CalendarList, CalendarEvent } from "react-native-calendars";
-// import moment from "moment";
-// // import axios from "axios";
-
-// // import TimetableCard from "./TimetableCard";
-
-// const AdminTimetableView = () => {
-//   const [schoolName, setSchoolName] = useState("");
-//   const [departmentName, setDepartmentName] = useState("");
-//   const [semester, setSemester] = useState("");
-//   const [events, setEvents] = useState([]);
-//   const [timetable, setTimetable] = useState([]);
-//   const [teachers, setTeachers] = useState([]);
-//   const [index, setIndex] = useState(0);
-//   //   useEffect(() => {
-//   //     const fetchEvents = async () => {
-//   //       try {
-//   //         const response = await axios.get(
-//   //           "https://your-api-url/calendar/events"
-//   //         );
-//   //         setEvents(response.data);
-//   //       } catch (error) {
-//   //         console.error(error);
-//   //       }
-//   //     };
-
-//   //     const fetchTimetable = async () => {
-//   //       try {
-//   //         const response = await axios.get(
-//   //           "https://your-api-url/timetable"
-//   //         );
-//   //         setTimetable(response.data);
-//   //       } catch (error) {
-//   //         console.error(error);
-//   //       }
-//   //     };
-
-//   //     const fetchTeachers = async () => {
-//   //       try {
-//   //         const response = await axios.get(
-//   //           "https://your-api-url/teachers"
-//   //         );
-//   //         setTeachers(response.data);
-//   //       } catch (error) {
-//   //         console.error(error);
-//   //       }
-
-//   //     fetchEvents();
-//   //     fetchTimetable();
-//   //     fetchTeachers();
-//   //   }, [],);
-
-//   const handleFilter = () => {
-//     const filteredEvents = events.filter(
-//       (event) =>
-//         event.title.includes(schoolName) &&
-//         event.description.includes(departmentName) &&
-//         event.description.includes(semester)
-//     );
-
-//     const filteredTimetable = timetable.filter(
-//       (timetable) =>
-//         timetable.department === departmentName &&
-//         timetable.semester === semester
-//     );
-
-//     setEvents(filteredEvents);
-//     setTimetable(filteredTimetable);
-//   };
-//   const routes = [
-//     { key: "monday", title: "Monday" },
-//     { key: "tuesday", title: "Tuesday" },
-//     { key: "wednesday", title: "Wednesday" },
-//     { key: "thursday", title: "Thursday" },
-//     { key: "friday", title: "Friday" },
-//   ];
-
-//   // const renderTabBar = ({ scrollX }) => (
-//   //   <TabBar
-//   //     scrollEnabled={false}
-//   //     style={{ backgroundColor: "#fff" }}
-//   //     indicatorStyle={{ backgroundColor: "#007bff" }}
-//   //     tabStyle={{ width: 100 }}
-//   //     labelStyle={{ textAlign: "center" }}
-//   //     scrollX={scrollX}
-//   //   >
-//   //     <TabBar.Tab label="Monday" />
-//   //     <TabBar.Tab label="Tuesday" />
-//   //     <TabBar.Tab label="Wednesday" />
-//   //     <TabBar.Tab label="Thursday" />
-//   //     <TabBar.Tab label="Friday" />
-//   //   </TabBar>
-//   // );
-//   const renderTabBar = ({ navigationState }) => (
-//     <TabBar
-//       scrollEnabled={false}
-//       style={{ backgroundColor: "#fff" }}
-//       indicatorStyle={{ backgroundColor: "#007bff" }}
-//       tabStyle={{ width: 100 }}
-//       labelStyle={{ textAlign: "center" }}
-//       navigationState={navigationState} // Pass navigationState
-//     >
-//       {navigationState.routes.map((route, index) => (
-//         <TabBar.Tab key={index} label={route.title} />
-//       ))}
-//     </TabBar>
-//   );
-//   const renderTabView = ({ navigationState }) => {
-//     const { index } = navigationState;
-
-//     const dayEvents = events.filter(
-//       (event) =>
-//         moment(event.startTime).format("dddd") === moment().format("dddd")
-//     );
-
-//     const dayTimetable = timetable.filter(
-//       (timetable) =>
-//         moment(timetable.startTime).format("dddd") === moment().format("dddd")
-//     );
-
-//     const dayTeachers = teachers.filter(
-//       (teacher) =>
-//         moment(teacher.timetable.startTime).format("dddd") ===
-//         moment().format("dddd")
-//     );
-
-//     return (
-//       <View style={styles.container}>
-//         <View style={styles.eventNotification}>
-//           {dayEvents.length > 0 &&
-//             dayEvents.map((event) => (
-//               <View key={event.id}>
-//                 <Text style={styles.eventName}>{event.title}</Text>
-//                 {event.isHoliday ? (
-//                   <Text style={styles.eventDescription}>
-//                     Institution is closed
-//                   </Text>
-//                 ) : (
-//                   <Text style={styles.eventDescription}>
-//                     Regular classes will be held
-//                   </Text>
-//                 )}
-//               </View>
-//             ))}
-//         </View>
-//         <ScrollView style={styles.timetableContainer}>
-//           {dayTimetable.map((timetable, index) => (
-//             <TimetableCard
-//               key={timetable.id}
-//               duration={timetable.duration}
-//               subjectName={timetable.subjectName}
-//               teacherName={
-//                 dayTeachers.find(
-//                   (teacher) =>
-//                     teacher.timetable.subjectName === timetable.subjectName &&
-//                     teacher.timetable.startTime === timetable.startTime
-//                 )?.teacherName
-//               }
-//             />
-//           ))}
-//         </ScrollView>
-//       </View>
-//     );
-//   };
-
-//   return (
-//     <View style={styles.container}>
-//       <View style={styles.filterContainer}>
-//         <TextInput
-//           style={styles.input}
-//           placeholder="School Name"
-//           value={schoolName}
-//           onChangeText={setSchoolName}
-//         />
-//         <TextInput
-//           style={styles.input}
-//           placeholder="Department Name"
-//           value={departmentName}
-//           onChangeText={setDepartmentName}
-//         />
-//         <TextInput
-//           style={styles.input}
-//           placeholder="Semester"
-//           value={semester}
-//           onChangeText={setSemester}
-//         />
-//         <TouchableOpacity style={styles.button} onPress={handleFilter}>
-//           <Text style={styles.buttonText}>Filter</Text>
-//         </TouchableOpacity>
-//       </View>
-//       <TabView
-//         navigationState={{ index, routes }}
-//         renderScene={renderTabView}
-//         renderTabBar={renderTabBar}
-//         onIndexChange={setIndex}
-//       />
-//     </View>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: "#fff",
-//   },
-//   filterContainer: {
-//     flexDirection: "row",
-//     justifyContent: "space-between",
-//     paddingHorizontal: 16,
-//     paddingVertical: 8,
-//   },
-//   input: {
-//     width: "30%",
-//     height: 40,
-//     borderColor: "#ccc",
-//     borderWidth: 1,
-//     borderRadius: 4,
-//     paddingHorizontal: 8,
-//   },
-//   button: {
-//     backgroundColor: "#007bff",
-//     paddingVertical: 8,
-//     paddingHorizontal: 16,
-//     borderRadius: 4,
-//   },
-//   buttonText: {
-//     color: "#fff",
-//     fontWeight: "bold",
-//   },
-//   eventNotification: {
-//     padding: 16,
-//     backgroundColor: "#f5f5f5",
-//   },
-//   eventName: {
-//     fontSize: 16,
-//     fontWeight: "bold",
-//   },
-//   eventDescription: {
-//     fontSize: 14,
-//     color: "#666",
-//   },
-//   timetableContainer: {
-//     flex: 1,
-//     padding: 16,
-//   },
-// });
-
-// export default AdminTimetableView;

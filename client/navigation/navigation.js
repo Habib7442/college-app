@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 import { createStackNavigator } from "@react-navigation/stack";
 import { CommonActions } from "@react-navigation/native";
@@ -51,6 +51,7 @@ import CalenderScreen from "../features/CalenderScreen";
 // import StudentDayTimetableScreen from "../features/StudentFeatures/StudentDayTimetableScreen";
 import EventTimetableScreen from "../features/StudentFeatures/EventTimetableScreen";
 import StudentSubjectTimetableScreen from "../features/StudentFeatures/StudentSubjectTimetableScreen";
+import StudentNoticeScreen from "../features/StudentFeatures/StudentNoticeScreen";
 import TeacherAttendanceScreen from "../features/TeacherFeatures/TeacherAttendanceScreen";
 import TeacherNoticeScreen from "../features/TeacherFeatures/TeacherNoticeScreen";
 import TeacherTimetableScreen from "../features/TeacherFeatures/TeacherTimetableScreen";
@@ -71,41 +72,101 @@ import AdminAssignSubject from "../features/AdminFeatures/AdminAssignSubject";
 import AdminTimetableCreate from "../features/AdminFeatures/AdminTimetableCreate";
 import AdminTimetableView from "../features/AdminFeatures/AdminTimetableView";
 import TimetableSlot from "../features/AdminFeatures/TimetableSlot";
+import { getAuth, signOut } from "firebase/auth";
+import { collection, doc, getDoc, getDocs, query } from "firebase/firestore";
+import { db } from "../../lib/firebase";
+import { ActivityIndicator } from "react-native";
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
 const CustomDrawerContent = (props) => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const { profilePic, userName, userEmail } = useSelector(
-    (state) => state.auth
-  );
-  const handleLogout = () => {
-    dispatch(logout());
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: "Login" }],
-      })
-    );
+  const userType = useSelector((state) => state.auth.userType);
+  const [userNames, setUserNames] = useState();
+  const [isLoading, setIsLoading] = useState(true);
+  const auth = getAuth();
+  const currentUser = auth?.currentUser;
+  const { uid } = currentUser || {};
+  useEffect(() => {
+    if (currentUser) {
+      fetchUserName(userType, uid);
+    }
+  }, [userType, uid, currentUser]);
+
+  const fetchUserName = async (userType, userId) => {
+    const collections = collection(db, `${userType}s`);
+    const allDocs = await getDocs(collections);
+    const fetchedDocs = [];
+    for (const allDoc of allDocs.docs) {
+      const authCollection = collection(db, `${userType}s`, allDoc.id, "auth");
+      const q = query(authCollection);
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedDocs.push({
+          authId: doc.id,
+          name: data?.name,
+          email: data?.email,
+          imgUrl: data?.imageUrl,
+          ...data,
+        });
+      });
+    }
+    setUserNames(fetchedDocs);
+    setIsLoading(false);
+  };
+
+  const handleLogout = async () => {
+    const auth = getAuth();
+    try {
+      await signOut(auth);
+      dispatch(logout());
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        })
+      );
+    } catch (error) {
+      console.error("Error signing out: ", error);
+      Alert.alert("Error", "Failed to sign out. Please try again.");
+    }
   };
 
   return (
     <View style={{ flex: 1 }}>
       <DrawerContentScrollView {...props}>
         <View style={{ alignItems: "center", paddingTop: 20 }}>
-          <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
-            <Image
-              source={{
-                uri:
-                  profilePic ||
-                  "https://ps.w.org/user-avatar-reloaded/assets/icon-256x256.png?rev=2540745.jpg",
-              }}
-              style={{ width: 120, height: 120, borderRadius: 60 }}
-            />
-          </TouchableOpacity>
-          <Text style={{ marginTop: 10, fontSize: 18 }}>{userName}</Text>
-          <Text style={{ fontSize: 16, color: "#888" }}>{userEmail}</Text>
+          {isLoading ? (
+            <ActivityIndicator size="large" color="#0000ff" /> // Replace with your preferred loading indicator
+          ) : (
+            userNames
+              ?.filter((user) => user.uid === uid) // Filter the array
+              .map((userName, index) => (
+                <React.Fragment key={index}>
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => navigation.navigate("Profile")}
+                  >
+                    <Image
+                      source={{
+                        uri:
+                          userName?.imgUrl ||
+                          "https://ps.w.org/user-avatar-reloaded/assets/icon-256x256.png?rev=2540745.jpg",
+                      }}
+                      style={{ width: 120, height: 120, borderRadius: 60 }}
+                    />
+                  </TouchableOpacity>
+                  <Text style={{ marginTop: 10, fontSize: 18 }}>
+                    {userName?.name}
+                  </Text>
+                  <Text style={{ fontSize: 16, color: "#888" }}>
+                    {userName?.email}
+                  </Text>
+                  </React.Fragment>
+              ))
+          )}
         </View>
 
         <DrawerItemList {...props} />
@@ -128,7 +189,25 @@ const CustomDrawerContent = (props) => {
 };
 
 export const MainDrawerNavigator = () => {
-  const { userType } = useSelector((state) => state.auth);
+  const userType = useSelector((state) => state.auth.userType);
+
+  let HomeComponent;
+  switch (userType) {
+    case "Student":
+      HomeComponent = StudentHomePage;
+      break;
+    case "Teacher":
+      HomeComponent = TeacherHomePage;
+      break;
+    case "Admin":
+      HomeComponent = AdminHomePage;
+      break;
+    case "Master Admin":
+      HomeComponent = MasterAdminHomePage;
+      break;
+    default:
+      HomeComponent = StudentHomePage; // or some default component
+  }
   return (
     <Drawer.Navigator
       screenOptions={{
@@ -142,18 +221,7 @@ export const MainDrawerNavigator = () => {
       }}
       drawerContent={(props) => <CustomDrawerContent {...props} />}
     >
-      <Drawer.Screen
-        name="Home"
-        component={
-          userType === "Student"
-            ? StudentHomePage
-            : userType === "Teacher"
-            ? TeacherHomePage
-            : userType === "Admin"
-            ? AdminHomePage
-            : MasterAdminHomePage
-        }
-      />
+      <Drawer.Screen name="Home" component={HomeComponent} />
       <Drawer.Screen
         component={ProfileScreen}
         name="Profile"
@@ -263,12 +331,12 @@ export const AuthStack = () => {
         options={{ title: "Customization", headerShown: true }}
       />
       <Stack.Screen
-        name="CreationScreen"
+        name="Creation Screen"
         component={MAdminCreationScreen}
         options={{ title: "Creation Screen", headerShown: false }}
       />
       <Stack.Screen
-        name="ViewScreen"
+        name="View Screen"
         component={MAdminViewScreen}
         options={{ title: "View Screen", headerShown: false }}
       />
@@ -428,9 +496,9 @@ export const AuthStack = () => {
         options={{ title: "Admin Timetable", headerShown: true }}
       />
       <Stack.Screen
-        name="Pending"
-        component={PendingPage}
-        options={{ title: "Pending...", headerShown: true }}
+        name="Notice"
+        component={StudentNoticeScreen}
+        options={{ title: "Notices", headerShown: true }}
       />
     </Stack.Navigator>
   );

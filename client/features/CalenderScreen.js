@@ -1,100 +1,112 @@
-import React from "react";
+import { collection, getDocs, query } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
+import { db } from "../../lib/firebase";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const CalendarScreen = () => {
   // Sample events data
-  const events = [
-    {
-      name: "Event 1",
-      date: "2024-05-15",
-      description: "Description of Event 1",
-    },
-    {
-      name: "Event 2",
-      date: "2024-05-20",
-      description: "Description of Event 2",
-    },
-    {
-      name: "Event 3",
-      date: "2024-06-01",
-      description: "Description of Event 3",
-    },
-    // Add default holidays like Bihu
-    {
-      name: "Bihu",
-      date: "2024-04-14",
-      description: "Assamese New Year Festival",
-    },
-    {
-      name: "Bihu",
-      date: "2024-04-14",
-      description: "Assamese New Year Festival",
-    },
-    {
-      name: "Bihu",
-      date: "2024-04-14",
-      description: "Assamese New Year Festival",
-    },
-    {
-      name: "Bihu",
-      date: "2024-04-14",
-      description: "Assamese New Year Festival",
-    },
-    {
-      name: "Bihu",
-      date: "2024-04-14",
-      description: "Assamese New Year Festival",
-    },
-  ];
+  const [events, setEvents] = useState([]);
+
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      const masterAdminCollection = collection(db, "Master Admins");
+      const masterAdminDocs = await getDocs(masterAdminCollection);
+      const fetchedEvents = [];
+
+      for (const adminDoc of masterAdminDocs.docs) {
+        const eventsCollection = collection(
+          db,
+          "Master Admins",
+          adminDoc.id,
+          "events"
+        );
+        const eventsQuery = query(eventsCollection);
+        const querySnapshot = await getDocs(eventsQuery);
+        querySnapshot.forEach((eventDoc) => {
+          fetchedEvents.push({
+            id: eventDoc.id,
+            adminId: adminDoc.id,
+            ...eventDoc.data(),
+          });
+        });
+      }
+      setEvents(fetchedEvents);
+    } catch (error) {
+      Alert.alert("Error", "Failed to fetch events");
+      console.error("Error fetching events: ", error);
+    }
+  };
 
   return (
-    <ScrollView style={styles.container}>
-      <View>
-        <Text style={styles.heading}>Calendar</Text>
-        {events.map((event, index) => (
-          <View key={index}>
-            <View style={styles.eventContainer}>
-              <Text style={styles.eventName}>{event.name}</Text>
-              <Text style={styles.eventDate}>{event.date}</Text>
-              <Text style={styles.eventDescription}>{event.description}</Text>
-            </View>
-            {index !== events.length - 1 && <View style={styles.separator} />}
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container}>
+        <View>
+          <Text style={styles.heading}>Calendar</Text>
+          {events.length === 0 ? (
+            <Text>No data found</Text>
+          ) : (
+            events.map((event, index) => (
+              <View key={index} style={styles.card}>
+                <Text style={styles.eventName}>{event.name}</Text>
+                <Text style={styles.eventDate}>{event.date}</Text>
+                <Text style={styles.eventDescription}>{event.description}</Text>
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+  },
   container: {
     flex: 1,
     padding: 20,
   },
   heading: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "bold",
+    color: "#FF6347",
     marginBottom: 20,
   },
-  eventContainer: {
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
     marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   eventName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
+    color: "#FF6347",
   },
   eventDate: {
+    fontSize: 16,
     color: "gray",
     marginBottom: 5,
   },
   eventDescription: {
     fontSize: 16,
-  },
-  separator: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
-    marginBottom: 10,
   },
 });
 

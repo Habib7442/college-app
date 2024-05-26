@@ -1,67 +1,95 @@
 import React from "react";
-import { ScrollView, ScrollScrollView } from "react-native";
+import { ScrollView, ScrollScrollView, Text } from "react-native";
 import EventTimetableScreen from "../StudentFeatures/EventTimetableScreen";
 import TeacherSubjectTimetableScreen from "./TeacherSubjectTimetableScreen";
 
-export function SundayScreen() {
+export function SundayScreen({ dayTimetable }) {
+  if (dayTimetable.length === 0) {
+    return <Text>No timetable data for Sunday</Text>;
+  }
+
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={0} />
-      <TeacherSubjectTimetableScreen dayIndex={0} />
+      <EventTimetableScreen dayIndex={0} timetable={dayTimetable} />
+      <TeacherSubjectTimetableScreen dayIndex={0} timetable={dayTimetable} />
     </ScrollView>
   );
 }
 
-export function MondayScreen() {
+export function MondayScreen({ dayTimetable }) {
+  if (dayTimetable.length === 0) {
+    return <Text>No timetable data for Monday</Text>;
+  }
+
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={1} />
-      <TeacherSubjectTimetableScreen dayIndex={1} />
+      <EventTimetableScreen dayIndex={1} timetable={dayTimetable} />
+      <TeacherSubjectTimetableScreen dayIndex={1} timetable={dayTimetable} />
     </ScrollView>
   );
 }
 
-export function TuesdayScreen() {
+export function TuesdayScreen({ dayTimetable }) {
+  if (dayTimetable.length === 0) {
+    return <Text>No timetable data for Tuesday</Text>;
+  }
+
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={2} />
-      <TeacherSubjectTimetableScreen dayIndex={2} />
+      <EventTimetableScreen dayIndex={2} timetable={dayTimetable} />
+      <TeacherSubjectTimetableScreen dayIndex={2} timetable={dayTimetable} />
     </ScrollView>
   );
 }
 
-export function WednesdayScreen() {
+export function WednesdayScreen({ dayTimetable }) {
+  if (dayTimetable.length === 0) {
+    return <Text>No timetable data for Wednesday</Text>;
+  }
+
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={3} />
-      <TeacherSubjectTimetableScreen dayIndex={3} />
+      <EventTimetableScreen dayIndex={3} timetable={dayTimetable} />
+      <TeacherSubjectTimetableScreen dayIndex={3} timetable={dayTimetable} />
     </ScrollView>
   );
 }
 
-export function ThursdayScreen() {
+export function ThursdayScreen({ dayTimetable }) {
+  if (dayTimetable.length === 0) {
+    return <Text>No timetable data for Thursday</Text>;
+  }
+
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={4} />
-      <TeacherSubjectTimetableScreen dayIndex={4} />
+      <EventTimetableScreen dayIndex={4} timetable={dayTimetable} />
+      <TeacherSubjectTimetableScreen dayIndex={4} timetable={dayTimetable} />
     </ScrollView>
   );
 }
 
-export function FridayScreen() {
+export function FridayScreen({ dayTimetable }) {
+  if (dayTimetable.length === 0) {
+    return <Text>No timetable data for Friday</Text>;
+  }
+
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={5} />
-      <TeacherSubjectTimetableScreen dayIndex={5} />
+      <EventTimetableScreen dayIndex={5} timetable={dayTimetable} />
+      <TeacherSubjectTimetableScreen dayIndex={5} timetable={dayTimetable} />
     </ScrollView>
   );
 }
 
-export function SaturdayScreen() {
+export function SaturdayScreen({ dayTimetable }) {
+  if (dayTimetable.length === 0) {
+    return <Text>No timetable data for Saturday</Text>;
+  }
+
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={6} />
-      <TeacherSubjectTimetableScreen dayIndex={6} />
+      <EventTimetableScreen dayIndex={6} timetable={dayTimetable} />
+      <TeacherSubjectTimetableScreen dayIndex={6} timetable={dayTimetable} />
     </ScrollView>
   );
 }

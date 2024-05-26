@@ -16,31 +16,38 @@ const CandidateDetailsViewScreen = ({ route }) => {
   };
 
   // Use route params if available, otherwise fallback to sample data
-  const { name, school, department, year } = route.params || sampleData;
+  const {
+    name,
+    school,
+    department,
+    registerNumber,
+    phoneNumber,
+    email,
+    rollNumber,
+    imageUrl
+  } = route.params || sampleData;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>{status}</Text>
+        <Text style={styles.headerText}>Student Details</Text>
       </View>
       <TouchableOpacity style={styles.card}>
         <View style={styles.imageContainer}>
-          {sampleData.image && (
-            <Image source={{ uri: sampleData.image }} style={styles.image} />
+          {imageUrl && (
+            <Image source={{ uri: imageUrl }} style={styles.image} />
           )}
         </View>
         <View style={{ marginVertical: 10 }} />
         <Text style={styles.label}>Name: {name}</Text>
         <Text style={styles.label}>School: {school}</Text>
         <Text style={styles.label}>Department: {department}</Text>
-        <Text style={styles.label}>Year: {year}</Text>
-
         <Text style={styles.label}>
-          Register Number: {sampleData.registerNumber}
+          Register Number: {registerNumber}
         </Text>
-        <Text style={styles.label}>Roll Number: {sampleData.rollNumber}</Text>
-        <Text style={styles.label}>Phone Number: {sampleData.phoneNumber}</Text>
-        <Text style={styles.label}>Email: {sampleData.email}</Text>
+        <Text style={styles.label}>Roll Number: {rollNumber}</Text>
+        <Text style={styles.label}>Phone Number: {phoneNumber}</Text>
+        <Text style={styles.label}>Email: {email}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -87,8 +94,8 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   imageContainer: {
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "start",
+    alignItems: "start",
     marginTop: 20,
     borderRadius: 10,
     overflow: "hidden",
@@ -96,13 +103,8 @@ const styles = StyleSheet.create({
   image: {
     width: 200,
     height: 200,
+    borderRadius: 10,
   },
-  // image: {
-  //   width: 200,
-  //   height: 200,
-  //   marginTop: 20,
-  //   borderRadius: 10,
-  // },
 });
 
 export default CandidateDetailsViewScreen;

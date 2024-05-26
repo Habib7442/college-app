@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import {
   StyleSheet,
@@ -7,16 +7,33 @@ import {
   Text,
   TouchableOpacity,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import SearchUser from "../../components/SearchUser";
+import {
+  collection,
+  doc,
+  getDocs,
+  updateDoc,
+  query,
+  where,
+  deleteDoc,
+} from "firebase/firestore";
+import { db } from "../../../lib/firebase"; // Adjust the import path as needed
+import { FlatList } from "react-native";
+
 const Tab = createMaterialTopTabNavigator();
 
 const ApprovalCard = ({
   name,
   school,
   department,
-  year,
+  registerNumber,
+  phoneNumber,
+  email,
+  rollNumber,
+  imageUrl,
   status,
   onApprove,
   onView,
@@ -39,9 +56,10 @@ const ApprovalCard = ({
   return (
     <TouchableOpacity style={styles.card}>
       <Text style={styles.cardText}>Name: {name}</Text>
-      <Text style={styles.cardText}>School: {school}</Text>
-      <Text style={styles.cardText}>Department: {department}</Text>
-      <Text style={styles.cardText}>Year of Admission: {year}</Text>
+      {school && <Text style={styles.cardText}>School: {school}</Text>}
+      {department && (
+        <Text style={styles.cardText}>Department: {department}</Text>
+      )}
       <Text
         style={[
           styles.cardStatus,
@@ -85,7 +103,11 @@ const ApprovalCard = ({
                     name,
                     school,
                     department,
-                    year,
+                    registerNumber,
+                    phoneNumber,
+                    email,
+                    rollNumber,
+                    imageUrl,
                     status,
                   });
                 }}
@@ -98,7 +120,7 @@ const ApprovalCard = ({
               style={[styles.button, { backgroundColor: "red" }]}
               onPress={() => {
                 Alert.alert(
-                  "Confirm Approval",
+                  "Confirm Rejection",
                   "Are you sure you want to reject?",
                   [
                     {
@@ -130,7 +152,11 @@ const ApprovalCard = ({
                     name,
                     school,
                     department,
-                    year,
+                    registerNumber,
+                    phoneNumber,
+                    email,
+                    rollNumber,
+                    imageUrl,
                     status,
                   });
                 }}
@@ -153,80 +179,130 @@ const ApprovalCard = ({
 };
 
 const PendingApproval = () => {
-  // Dummy data for student approval
-  const [students, setStudents] = React.useState([
-    {
-      id: 1,
-      name: "John Doe",
-      school: "School of Engineering",
-      department: "Computer Science",
-      year: "2023",
-      status: "Pending",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      school: "School of Medicine",
-      department: "Biochemistry",
-      year: "2022",
-      status: "Pending",
-    },
-    {
-      id: 3,
-      name: "Alice Johnson",
-      school: "School of Business",
-      department: "Finance",
-      year: "2024",
-      status: "Pending",
-    },
-    // Add more student data as needed
-  ]);
+  const [teachers, setTeachers] = useState([]);
+  const [originalTeachers, setOriginalTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const handleApprove = (id) => {
-    // Handle approve action
-    console.log(`Approved student with ID: ${id}`);
-    setStudents(students.filter((student) => student.id !== id));
+  const fetchPendingTeachers = async () => {
+    try {
+      const teacherCollection = collection(db, "Teachers");
+      const teacherDocs = await getDocs(teacherCollection);
+
+      const fetchedTeachers = [];
+
+      for (const teacherDoc of teacherDocs.docs) {
+        const authCollection = collection(
+          db,
+          "Teachers",
+          teacherDoc.id,
+          "auth"
+        );
+        const q = query(authCollection, where("isApproved", "==", false));
+        const querySnapshot = await getDocs(q);
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          fetchedTeachers.push({
+            id: teacherDoc.id,
+            authId: doc.id,
+            ...data,
+          });
+        });
+      }
+
+      setTeachers(fetchedTeachers);
+      setOriginalTeachers(fetchedTeachers); // Save the original list
+      setLoading(false); // Set loading to false once data is fetched
+    } catch (error) {
+      console.error("Error fetching pending teachers:", error);
+      setLoading(false); // Set loading to false in case of error
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    fetchPendingTeachers();
+  }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchPendingTeachers();
+    setRefreshing(false);
+  };
+
+  const handleApprove = async (teacherId, authId) => {
+    const authDocRef = doc(db, "Teachers", teacherId, "auth", authId);
+
+    await updateDoc(authDocRef, { isApproved: true });
+    Alert.alert("Approved successfully");
+
+    setTeachers(teachers.filter((teacher) => teacher.id !== teacherId));
+    setOriginalTeachers(
+      originalTeachers.filter((teacher) => teacher.id !== teacherId)
+    ); // Update the original list
   };
 
   const handleView = (id) => {
-    // Handle view action
-    console.log(`View student with ID: ${id}`);
+    console.log(`View teacher with ID: ${id}`);
   };
 
-  const handleReject = (id) => {
-    // Handle reject action
-    console.log(`Rejected student with ID: ${id}`);
-    setStudents(students.filter((student) => student.id !== id));
+  const handleReject = async (teacherId, authId) => {
+    const authDocRef = doc(db, "Teachers", teacherId, "auth", authId);
+
+    await updateDoc(authDocRef, { isApproved: false });
+    Alert.alert("Rejected successfully");
+
+    setTeachers(teachers.filter((teacher) => teacher.id !== teacherId));
+    setOriginalTeachers(
+      originalTeachers.filter((teacher) => teacher.id !== teacherId)
+    ); // Update the original list
   };
+
   const handleSearch = (query) => {
-    const filteredStudents = students.filter((student) => {
-      const name = student.name ? student.name.toLowerCase() : "";
-      const registrationNumber = student.registrationNumber
-        ? student.registrationNumber.toLowerCase()
-        : "";
-      return (
-        name.includes(query.toLowerCase()) ||
-        registrationNumber.includes(query.toLowerCase())
-      );
-    });
-    setStudents(filteredStudents);
+    if (query.trim() === "") {
+      setTeachers(originalTeachers);
+    } else {
+      const filteredTeachers = originalTeachers.filter((teacher) => {
+        const name = teacher.name ? teacher.name.toLowerCase() : "";
+        const registerNumber = teacher.registerNumber
+          ? teacher.registerNumber.toLowerCase()
+          : "";
+        return (
+          name.includes(query.toLowerCase()) ||
+          registerNumber.includes(query.toLowerCase())
+        );
+      });
+      setTeachers(filteredTeachers);
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      }
+    >
       <SearchUser onSearch={handleSearch} />
-      {students.length > 0 ? (
-        students.map((student) => (
+      {loading ? (
+        <Text>Loading, please wait...</Text>
+      ) : teachers.length > 0 ? (
+        teachers.map((teacher) => (
           <ApprovalCard
-            key={student.id}
-            name={student.name}
-            school={student.school}
-            department={student.department}
-            year={student.year}
-            status={student.status}
-            onApprove={() => handleApprove(student.id)}
-            onView={() => handleView(student.id)}
-            onReject={() => handleReject(student.id)}
+            key={teacher?.id}
+            name={teacher?.name}
+            school={teacher?.schoolName}
+            department={teacher?.department}
+            registerNumber={teacher?.registerNumber}
+            rollNumber={teacher?.rollNumber}
+            phoneNumber={teacher?.phoneNumber}
+            email={teacher?.email}
+            imageUrl={teacher?.imageUrl}
+            status={teacher?.isApproved === false ? "Pending" : "Approved"}
+            onApprove={() => handleApprove(teacher.id, teacher.authId)}
+            onView={() => handleView(teacher.id)}
+            onReject={() => handleReject(teacher.id, teacher.authId)}
           />
         ))
       ) : (
@@ -237,65 +313,116 @@ const PendingApproval = () => {
 };
 
 const AcceptedApproval = () => {
-  // Dummy data for teacher approval
-  const [teachers, setTeachers] = React.useState([
-    {
-      id: 1,
-      name: "John Doe",
-      department: "Mathematics",
-      status: "Approved",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      department: "Physics",
-      status: "Approved",
-    },
-    {
-      id: 3,
-      name: "Alice Johnson",
-      department: "Chemistry",
-      status: "Approved",
-    },
-    // Add more teacher data as needed
-  ]);
+  const [teachers, setTeachers] = useState([]);
+  const [originalTeachers, setOriginalTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchAcceptedTeachers = async () => {
+    try {
+      const teacherCollection = collection(db, "Teachers");
+      const teacherDocs = await getDocs(teacherCollection);
+
+      const fetchedTeachers = [];
+
+      for (const teacherDoc of teacherDocs.docs) {
+        const authCollection = collection(
+          db,
+          "Teachers",
+          teacherDoc.id,
+          "auth"
+        );
+        const q = query(authCollection, where("isApproved", "==", true));
+        const querySnapshot = await getDocs(q);
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          fetchedTeachers.push({
+            id: teacherDoc.id,
+            authId: doc.id,
+            ...data,
+          });
+        });
+      }
+
+      setTeachers(fetchedTeachers);
+      setOriginalTeachers(fetchedTeachers); // Save the original list
+      setLoading(false); // Set loading to false once data is fetched
+    } catch (error) {
+      console.error("Error fetching accepted teachers:", error);
+      setLoading(false); // Set loading to false in case of error
+    }
+  };
+
+  useEffect(() => {
+    fetchAcceptedTeachers();
+  }, []);
+
+  const handleDelete = async (teacherId, authId) => {
+    const authDocRef = doc(db, "Teachers", teacherId, "auth", authId);
+
+    await deleteDoc(authDocRef);
+    Alert.alert("Deleted successfully");
+
+    setTeachers(teachers.filter((teacher) => teacher.id !== teacherId));
+    setOriginalTeachers(
+      originalTeachers.filter((teacher) => teacher.id !== teacherId)
+    ); // Update the original list
+  };
 
   const handleView = (id) => {
-    // Handle view action
     console.log(`View teacher with ID: ${id}`);
   };
 
-  const handleDelete = (id) => {
-    // Handle delete action
-    console.log(`Deleted teacher with ID: ${id}`);
-    setTeachers(teachers.filter((teacher) => teacher.id !== id));
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchAcceptedTeachers();
+    setRefreshing(false);
   };
+
   const handleSearch = (query) => {
-    const filteredTeachers = teachers.filter((teacher) => {
-      const name = teacher.name ? teacher.name.toLowerCase() : "";
-      const registrationNumber = teacher.registrationNumber
-        ? teacher.registrationNumber.toLowerCase()
-        : "";
-      return (
-        name.includes(query.toLowerCase()) ||
-        registrationNumber.includes(query.toLowerCase())
-      );
-    });
-    setTeachers(filteredTeachers);
+    if (query.trim() === "") {
+      setTeachers(originalTeachers);
+    } else {
+      const filteredTeachers = originalTeachers.filter((teacher) => {
+        const name = teacher.name ? teacher.name.toLowerCase() : "";
+        const registerNumber = teacher.registerNumber
+          ? teacher.registerNumber.toLowerCase()
+          : "";
+        return (
+          name.includes(query.toLowerCase()) ||
+          registerNumber.includes(query.toLowerCase())
+        );
+      });
+      setTeachers(filteredTeachers);
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      }
+    >
       <SearchUser onSearch={handleSearch} />
-      {teachers.length > 0 ? (
+      {loading ? (
+        <Text>Loading, please wait...</Text>
+      ) : teachers.length > 0 ? (
         teachers.map((teacher) => (
           <ApprovalCard
-            key={teacher.id}
-            name={teacher.name}
-            department={teacher.department}
-            status={teacher.status}
+            key={teacher?.id}
+            name={teacher?.name}
+            school={teacher?.schoolName}
+            department={teacher?.department}
+            registerNumber={teacher?.registerNumber}
+            rollNumber={teacher?.rollNumber}
+            phoneNumber={teacher?.phoneNumber}
+            email={teacher?.email}
+            imageUrl={teacher?.imageUrl}
+            status={"Approved"}
             onView={() => handleView(teacher.id)}
-            onDelete={() => handleDelete(teacher.id)}
+            onDelete={() => handleDelete(teacher.id, teacher.authId)}
           />
         ))
       ) : (
@@ -306,61 +433,116 @@ const AcceptedApproval = () => {
 };
 
 const RejectedApproval = () => {
-  // Dummy data for admin approval
-  const [admins, setAdmins] = React.useState([
-    {
-      id: 1,
-      name: "John Doe",
-      status: "Rejected",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      status: "Rejected",
-    },
-    {
-      id: 3,
-      name: "Alice Johnson",
-      status: "Rejected",
-    },
-    // Add more admin data as needed
-  ]);
+  const [teachers, setTeachers] = useState([]);
+  const [originalTeachers, setOriginalTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchRejectedTeachers = async () => {
+    try {
+      const teacherCollection = collection(db, "Teachers");
+      const teacherDocs = await getDocs(teacherCollection);
+
+      const fetchedTeachers = [];
+
+      for (const teacherDoc of teacherDocs.docs) {
+        const authCollection = collection(
+          db,
+          "Teachers",
+          teacherDoc.id,
+          "auth"
+        );
+        const q = query(authCollection, where("isApproved", "==", false));
+        const querySnapshot = await getDocs(q);
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          fetchedTeachers.push({
+            id: teacherDoc.id,
+            authId: doc.id,
+            ...data,
+          });
+        });
+      }
+
+      setTeachers(fetchedTeachers);
+      setOriginalTeachers(fetchedTeachers); // Save the original list
+      setLoading(false); // Set loading to false once data is fetched
+    } catch (error) {
+      console.error("Error fetching rejected teachers:", error);
+      setLoading(false); // Set loading to false in case of error
+    }
+  };
+
+  useEffect(() => {
+    fetchRejectedTeachers();
+  }, []);
+
+  const handleDelete = async (teacherId, authId) => {
+    const authDocRef = doc(db, "Teachers", teacherId, "auth", authId);
+
+    await deleteDoc(authDocRef);
+    Alert.alert("Deleted successfully");
+
+    setTeachers(teachers.filter((teacher) => teacher.id !== teacherId));
+    setOriginalTeachers(
+      originalTeachers.filter((teacher) => teacher.id !== teacherId)
+    ); // Update the original list
+  };
 
   const handleView = (id) => {
-    // Handle view action
-    console.log(`View admin with ID: ${id}`);
+    console.log(`View teacher with ID: ${id}`);
   };
 
-  const handleDelete = (id) => {
-    // Handle delete action
-    console.log(`Deleted admin with ID: ${id}`);
-    setAdmins(admins.filter((admin) => admin.id !== id));
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchRejectedTeachers();
+    setRefreshing(false);
   };
+
   const handleSearch = (query) => {
-    const filteredAdmins = admins.filter((admin) => {
-      const name = admin.name ? admin.name.toLowerCase() : "";
-      const registrationNumber = admin.registrationNumber
-        ? admin.registrationNumber.toLowerCase()
-        : "";
-      return (
-        name.includes(query.toLowerCase()) ||
-        registrationNumber.includes(query.toLowerCase())
-      );
-    });
-    setAdmins(filteredAdmins);
+    if (query.trim() === "") {
+      setTeachers(originalTeachers);
+    } else {
+      const filteredTeachers = originalTeachers.filter((teacher) => {
+        const name = teacher.name ? teacher.name.toLowerCase() : "";
+        const registerNumber = teacher.registerNumber
+          ? teacher.registerNumber.toLowerCase()
+          : "";
+        return (
+          name.includes(query.toLowerCase()) ||
+          registerNumber.includes(query.toLowerCase())
+        );
+      });
+      setTeachers(filteredTeachers);
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      }
+    >
       <SearchUser onSearch={handleSearch} />
-      {admins.length > 0 ? (
-        admins.map((admin) => (
+      {loading ? (
+        <Text>Loading, please wait...</Text>
+      ) : teachers.length > 0 ? (
+        teachers.map((teacher) => (
           <ApprovalCard
-            key={admin.id}
-            name={admin.name}
-            status={admin.status}
-            onView={() => handleView(admin.id)}
-            onDelete={() => handleDelete(admin.id)}
+            key={teacher?.id}
+            name={teacher?.name}
+            school={teacher?.schoolName}
+            department={teacher?.department}
+            registerNumber={teacher?.registerNumber}
+            rollNumber={teacher?.rollNumber}
+            phoneNumber={teacher?.phoneNumber}
+            email={teacher?.email}
+            imageUrl={teacher?.imageUrl}
+            status={"Rejected"}
+            onView={() => handleView(teacher.id)}
+            onDelete={() => handleDelete(teacher.id, teacher.authId)}
           />
         ))
       ) : (
@@ -369,7 +551,8 @@ const RejectedApproval = () => {
     </ScrollView>
   );
 };
-const RegistrationApprovalTabs = () => {
+
+const TeacherApprovalScreen = () => {
   return (
     <Tab.Navigator>
       <Tab.Screen name="Pending" component={PendingApproval} />
@@ -379,44 +562,40 @@ const RegistrationApprovalTabs = () => {
   );
 };
 
-const TeacherApprovalScreen = () => {
-  return <RegistrationApprovalTabs />;
-};
-
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    flexGrow: 1,
+    padding: 16,
   },
   card: {
     backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 20,
-    marginBottom: 10,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
     elevation: 3,
   },
   cardText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 5,
+    fontSize: 16,
+    marginBottom: 8,
   },
   cardStatus: {
     fontSize: 16,
-    marginBottom: 5,
+    fontWeight: "bold",
   },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: 16,
   },
   button: {
+    borderRadius: 8,
     padding: 10,
-    borderRadius: 5,
-    flex: 1,
-    marginHorizontal: 5,
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 4,
   },
   buttonText: {
     color: "#fff",
-    textAlign: "center",
     fontWeight: "bold",
   },
 });

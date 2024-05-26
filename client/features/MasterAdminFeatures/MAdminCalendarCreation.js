@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,8 +6,19 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar } from "react-native-calendars";
+import { db } from "../../../lib/firebase"; // Adjust the import path as needed
+import {
+  collection,
+  addDoc,
+  deleteDoc,
+  doc,
+  query,
+  getDocs,
+} from "firebase/firestore";
 
 const MAdminCalendarCreation = () => {
   const [events, setEvents] = useState([]);
@@ -16,9 +27,43 @@ const MAdminCalendarCreation = () => {
   const [eventDescription, setEventDescription] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
 
-  const handleAddEvent = () => {
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      const masterAdminCollection = collection(db, "Master Admins");
+      const masterAdminDocs = await getDocs(masterAdminCollection);
+      const fetchedEvents = [];
+
+      for (const adminDoc of masterAdminDocs.docs) {
+        const eventsCollection = collection(
+          db,
+          "Master Admins",
+          adminDoc.id,
+          "events"
+        );
+        const eventsQuery = query(eventsCollection);
+        const querySnapshot = await getDocs(eventsQuery);
+        querySnapshot.forEach((eventDoc) => {
+          fetchedEvents.push({
+            id: eventDoc.id,
+            adminId: adminDoc.id,
+            ...eventDoc.data(),
+          });
+        });
+      }
+      setEvents(fetchedEvents);
+    } catch (error) {
+      Alert.alert("Error", "Failed to fetch events");
+      console.error("Error fetching events: ", error);
+    }
+  };
+
+  const handleAddEvent = async () => {
     if (!eventName || !eventDate) {
-      alert("Please fill in the event name and select a date");
+      Alert.alert("Error", "Please fill in the event name and select a date");
       return;
     }
 
@@ -28,15 +73,55 @@ const MAdminCalendarCreation = () => {
       description: eventDescription,
     };
 
-    setEvents([...events, newEvent]);
-    setEventName("");
-    setEventDescription("");
+    try {
+      const userDocRef = await addDoc(collection(db, "Master Admins"), {});
+
+      // Add the event to the "events" subcollection
+      const eventDocRef = await addDoc(
+        collection(db, "Master Admins", userDocRef.id, "events"),
+        newEvent
+      );
+      setEvents([
+        ...events,
+        { id: eventDocRef.id, adminId: userDocRef.id, ...newEvent },
+      ]);
+      setEventName("");
+      setEventDescription("");
+      Alert.alert("Success", "Event added successfully");
+    } catch (error) {
+      Alert.alert("Error", "Failed to add event");
+      console.error("Error adding event: ", error);
+    }
   };
 
-  const handleDeleteEvent = (index) => {
-    const updatedEvents = [...events];
-    updatedEvents.splice(index, 1);
-    setEvents(updatedEvents);
+  const handleDeleteEvent = async (index) => {
+    if (index < 0 || index >= events.length) {
+      Alert.alert("Error", "Invalid event index");
+      return;
+    }
+
+    const eventToDelete = events[index];
+
+    try {
+      await deleteDoc(
+        doc(
+          db,
+          "Master Admins",
+          eventToDelete.adminId,
+          "events",
+          eventToDelete.id
+        )
+      );
+
+      // Remove the event from the local state
+      const updatedEvents = [...events];
+      updatedEvents.splice(index, 1);
+      setEvents(updatedEvents);
+      Alert.alert("Success", "Event deleted successfully");
+    } catch (error) {
+      Alert.alert("Error", "Failed to delete event");
+      console.error("Error deleting event: ", error);
+    }
   };
 
   const handleDatePress = (date) => {
@@ -45,70 +130,83 @@ const MAdminCalendarCreation = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>University Calendar Creation</Text>
+    <SafeAreaView style={styles.safeContainer}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.heading}>University Calendar Creation</Text>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Event Name:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter Event Name"
-          onChangeText={(text) => setEventName(text)}
-          value={eventName}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Event Name:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter Event Name"
+            onChangeText={(text) => setEventName(text)}
+            value={eventName}
+          />
+        </View>
+
+        <Calendar
+          current={new Date().toISOString().split("T")[0]}
+          onDayPress={handleDatePress}
+          markedDates={{ [selectedDate]: { selected: true, marked: true } }}
+          theme={{
+            selectedDayBackgroundColor: "#00adf5",
+            todayTextColor: "#00adf5",
+            arrowColor: "orange",
+          }}
         />
-      </View>
 
-      <Calendar
-        current={new Date().toISOString().split("T")[0]}
-        onDayPress={handleDatePress}
-        markedDates={{ [selectedDate]: { selected: true, marked: true } }}
-      />
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Event Description:</Text>
+          <TextInput
+            style={[styles.input, { height: 100 }]}
+            placeholder="Enter Event Description"
+            multiline={true}
+            onChangeText={(text) => setEventDescription(text)}
+            value={eventDescription}
+          />
+        </View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Event Description:</Text>
-        <TextInput
-          style={[styles.input, { height: 100 }]}
-          placeholder="Enter Event Description"
-          multiline={true}
-          onChangeText={(text) => setEventDescription(text)}
-          value={eventDescription}
-        />
-      </View>
+        <TouchableOpacity style={styles.addButton} onPress={handleAddEvent}>
+          <Text style={styles.addButtonText}>Add Event</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.addButton} onPress={handleAddEvent}>
-        <Text>Add Event</Text>
-      </TouchableOpacity>
-
-      <View style={styles.eventsContainer}>
-        <Text style={styles.eventsHeading}>Events</Text>
-        {events.map((event, index) => (
-          <View key={index} style={styles.eventCard}>
-            <View style={styles.eventInfo}>
-              <Text style={styles.eventName}>{event.name}</Text>
-              <Text style={styles.eventDate}>{event.date}</Text>
-              {event.description && (
-                <Text style={styles.eventDescription}>{event.description}</Text>
-              )}
+        <View style={styles.eventsContainer}>
+          <Text style={styles.eventsHeading}>Events</Text>
+          {events.map((event, index) => (
+            <View key={index} style={styles.eventCard}>
+              <View style={styles.eventInfo}>
+                <Text style={styles.eventName}>{event.name}</Text>
+                <Text style={styles.eventDate}>{event.date}</Text>
+                {event.description && (
+                  <Text style={styles.eventDescription}>
+                    {event.description}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={() => handleDeleteEvent(index)}>
+                <Text style={styles.deleteButton}>Delete</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => handleDeleteEvent(index)}>
-              <Text style={styles.deleteButton}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
+  safeContainer: {
+    flex: 1,
     backgroundColor: "#f0f0f0",
   },
+  container: {
+    padding: 20,
+  },
   heading: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "bold",
     marginBottom: 20,
+    color: "#333",
   },
   inputContainer: {
     marginVertical: 14,
@@ -116,6 +214,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     marginBottom: 5,
+    color: "#555",
   },
   input: {
     width: "100%",
@@ -126,12 +225,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   addButton: {
-    backgroundColor: "skyblue",
+    backgroundColor: "#00adf5",
     padding: 15,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,
+  },
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
   eventsContainer: {
     marginTop: 20,
@@ -173,9 +276,8 @@ const styles = StyleSheet.create({
     color: "white",
     padding: 10,
     borderRadius: 5,
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "bold",
-    marginLeft: 10,
   },
 });
 

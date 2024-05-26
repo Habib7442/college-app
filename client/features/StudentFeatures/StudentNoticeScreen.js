@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, FlatList, ActivityIndicator } from 'react-nativ
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 
-const TeacherNoticeScreen = () => {
+const StudentNoticeScreen = () => {
   const [notices, setNotices] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -13,7 +13,7 @@ const TeacherNoticeScreen = () => {
 
   const fetchNotices = async () => {
     setIsLoading(true);
-    const noticeQuery = query(collection(db, 'Adminnotices'), where('recipient', '==', 'Teacher'));
+    const noticeQuery = query(collection(db, 'Adminnotices'), where('recipient', '==', 'Student'));
     const noticeSnapshot = await getDocs(noticeQuery);
     const noticeData = noticeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     setNotices(noticeData);
@@ -33,7 +33,7 @@ const TeacherNoticeScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Teacher Notice Screen</Text>
+      <Text style={styles.title}>Student Notice Screen</Text>
       <FlatList
         data={notices}
         keyExtractor={item => item.id}
@@ -80,4 +80,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TeacherNoticeScreen;
+export default StudentNoticeScreen;

@@ -16,6 +16,8 @@ import {
   ScrollView,
   Image,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 const TeacherHomePage = ({ route }) => {
   const navigation = useNavigation();
 
@@ -73,11 +75,11 @@ const TeacherHomePage = ({ route }) => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
           <TouchableOpacity onPress={openDrawer} style={styles.iconContainer}>
-            <Ionicons name="md-menu" size={30} color="white" />
+            <Ionicons name="menu" size={30} color="white" />
           </TouchableOpacity>
 
           <Text style={styles.headerText}>My College App</Text>
@@ -85,7 +87,7 @@ const TeacherHomePage = ({ route }) => {
             onPress={handleNotifications}
             style={styles.iconContainer}
           >
-            <Ionicons name="md-notifications" size={30} color="white" />
+            <Ionicons name="notifications" size={30} color="white" />
           </TouchableOpacity>
         </View>
 
@@ -94,7 +96,7 @@ const TeacherHomePage = ({ route }) => {
             source={require("../../image/3033337.png")}
             style={styles.bigCardImage}
           />
-          <Text style={styles.bigCardText}>Collage Name</Text>
+          <Text style={styles.bigCardText}>{collageName}</Text>
         </TouchableOpacity>
         <View style={styles.features}>
           <Text style={styles.featuresText}>Features</Text>
@@ -143,23 +145,22 @@ const TeacherHomePage = ({ route }) => {
             <Text style={styles.cardText}>Notice</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor: "#f0f0f0",
-    backgroundColor: "lightblue",
+    backgroundColor: "#f0f0f0",
   },
   scrollContainer: {
     flexGrow: 1,
+    alignItems: 'center',
   },
   bigCard: {
-    margin: 20,
-
+    marginTop: 20,
     width: "90%",
     aspectRatio: 2,
     backgroundColor: "#fff",
@@ -201,6 +202,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
+    width: '100%',
   },
   headerText: {
     fontSize: 24,
@@ -213,7 +215,6 @@ const styles = StyleSheet.create({
   card: {
     width: "40%",
     aspectRatio: 1,
-    // backgroundColor: "#fff",
     backgroundColor: "#6490E8",
     borderRadius: 20,
     justifyContent: "center",
@@ -234,8 +235,8 @@ const styles = StyleSheet.create({
   },
   features: {
     padding: 10,
-
     alignItems: "center",
+    width: '100%',
   },
   featuresText: {
     fontSize: 30,
@@ -245,237 +246,3 @@ const styles = StyleSheet.create({
 });
 
 export default TeacherHomePage;
-
-// import React from "react";
-// import {
-//   View,
-//   Text,
-//   TouchableOpacity,
-//   StyleSheet,
-//   ScrollView,
-// } from "react-native";
-
-// const TeacherHomePage = () => {
-//   return (
-//     <ScrollView contentContainerStyle={styles.scrollContainer}>
-//       <View style={styles.container}>
-//         <View style={styles.header}>
-//           <Text style={styles.headerText}>My College App</Text>
-//         </View>
-//         <TouchableOpacity style={styles.bigCard}>
-//           <Text style={styles.bigCardText}>Big Card</Text>
-//         </TouchableOpacity>
-//         <View style={styles.cards}>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>ERP</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Timetable</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Attendance</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Calendar</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Library</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Report</Text>
-//           </TouchableOpacity>
-//         </View>
-//       </View>
-//     </ScrollView>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: "#f0f0f0",
-//   },
-//   scrollContainer: {
-//     flexGrow: 1,
-//   },
-//   bigCard: {
-//     margin: 20,
-
-//     width: "90%",
-//     aspectRatio: 2, // Maintain aspect ratio
-//     backgroundColor: "#fff",
-//     borderRadius: 20,
-//     justifyContent: "center",
-//     alignItems: "center",
-//     marginBottom: 10,
-//     shadowColor: "#000",
-//     shadowOffset: {
-//       width: 0,
-//       height: 2,
-//     },
-//     shadowOpacity: 0.25,
-//     shadowRadius: 3.84,
-//     elevation: 5,
-//   },
-//   bigCardText: {
-//     fontSize: 24,
-//     fontWeight: "bold",
-//   },
-//   cards: {
-//     flexDirection: "row",
-//     flexWrap: "wrap",
-//     justifyContent: "center",
-//     alignItems: "center",
-//     padding: 10,
-//   },
-//   header: {
-//     padding: 20,
-//     backgroundColor: "#007FFF",
-//     alignItems: "center",
-//   },
-//   headerText: {
-//     fontSize: 24,
-//     fontWeight: "bold",
-//     color: "#fff",
-//   },
-//   card: {
-//     width: "40%",
-//     aspectRatio: 1, // Maintain aspect ratio
-//     backgroundColor: "#fff",
-//     borderRadius: 20,
-//     justifyContent: "center",
-//     alignItems: "center",
-//     margin: 5,
-//     shadowColor: "#000",
-//     shadowOffset: {
-//       width: 0,
-//       height: 2,
-//     },
-//     shadowOpacity: 0.25,
-//     shadowRadius: 3.84,
-//     elevation: 5,
-//   },
-//   cardText: {
-//     fontSize: 18,
-//     fontWeight: "bold",
-//   },
-// });
-
-// export default TeacherHomePage;
-
-// import React from "react";
-// import {
-//   View,
-//   Text,
-//   TouchableOpacity,
-//   StyleSheet,
-//   ScrollView,
-// } from "react-native";
-
-// const TeacherHomePage = () => {
-//   return (
-//     <ScrollView contentContainerStyle={styles.scrollContainer}>
-//       <View style={styles.container}>
-//         <View style={styles.header}>
-//           <Text style={styles.headerText}>My College App</Text>
-//         </View>
-//         <TouchableOpacity style={styles.bigCard}>
-//           <Text style={styles.bigCardText}>Big Card</Text>
-//         </TouchableOpacity>
-//         <View style={styles.cards}>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Notice</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Timetable Management</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Attendance Management</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Calendar</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Library</Text>
-//           </TouchableOpacity>
-//           <TouchableOpacity style={styles.card}>
-//             <Text style={styles.cardText}>Report</Text>
-//           </TouchableOpacity>
-//         </View>
-//       </View>
-//     </ScrollView>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: "#f0f0f0",
-//   },
-//   scrollContainer: {
-//     flexGrow: 1,
-//   },
-//   bigCard: {
-//     margin: 20,
-
-//     width: "90%",
-//     aspectRatio: 2, // Maintain aspect ratio
-//     backgroundColor: "#fff",
-//     borderRadius: 20,
-//     justifyContent: "center",
-//     alignItems: "center",
-//     marginBottom: 10,
-//     shadowColor: "#000",
-//     shadowOffset: {
-//       width: 0,
-//       height: 2,
-//     },
-//     shadowOpacity: 0.25,
-//     shadowRadius: 3.84,
-//     elevation: 5,
-//   },
-//   bigCardText: {
-//     fontSize: 24,
-//     fontWeight: "bold",
-//   },
-//   cards: {
-//     flexDirection: "row",
-//     flexWrap: "wrap",
-//     justifyContent: "center",
-//     alignItems: "center",
-//     padding: 10,
-//   },
-//   header: {
-//     padding: 20,
-//     backgroundColor: "#007FFF",
-//     alignItems: "center",
-//   },
-//   headerText: {
-//     fontSize: 24,
-//     fontWeight: "bold",
-//     color: "#fff",
-//   },
-//   card: {
-//     width: "40%",
-//     aspectRatio: 1, // Maintain aspect ratio
-//     backgroundColor: "#fff",
-//     borderRadius: 20,
-//     justifyContent: "center",
-//     alignItems: "center",
-//     margin: 5,
-//     shadowColor: "#000",
-//     shadowOffset: {
-//       width: 0,
-//       height: 2,
-//     },
-//     shadowOpacity: 0.25,
-//     shadowRadius: 3.84,
-//     elevation: 5,
-//   },
-//   cardText: {
-//     fontSize: 18,
-//     fontWeight: "bold",
-//   },
-// });
-
-// export default TeacherHomePage;

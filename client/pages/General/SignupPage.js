@@ -3,7 +3,6 @@ import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   Image,
   KeyboardAvoidingView,
   TextInput,
@@ -11,43 +10,58 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-// import { getUserType, setUserType } from "../../components/userType";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AntDesign } from "@expo/vector-icons";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { signUp, storage } from "../../../lib/firebase";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import * as ImagePicker from "expo-image-picker";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const SignupPage = () => {
-  // const userType = getUserType();
-  // const setUserType = setUserType();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [name, setName] = useState("");
-  const [schoolName, setSchoolName] = useState("");
-  const [department, setDepartment] = useState("");
-  const [registerNumber, setRegisterNumber] = useState("");
-  const [rollNumber, setRollNumber] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [userType, setUserType] = useState("");
-  const [universityName, setUniversityName] = useState("");
-  const [country, setCountry] = useState("");
-  const [location, setLocation] = useState("");
-  const [universityCode, setUniversityCode] = useState("");
-  const [postcode, setPostcode] = useState("");
-  const [city, setCity] = useState("");
-  const [address, setAddress] = useState("");
+  const [signUpForm, setSignUpForm] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+    name: "",
+    schoolName: "",
+    department: "",
+    registerNumber: "",
+    rollNumber: "",
+    phoneNumber: "",
+    userType: "",
+    universityName: "",
+    country: "",
+    location: "",
+    universityCode: "",
+    postcode: "",
+    city: "",
+    address: "",
+  });
+
   const [userImage, setUserImage] = useState(null);
   const navigation = useNavigation();
 
+  const [url, setUrl] = useState("");
+  const [imageList, setImageList] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
-    if (userType == "Master Admin") {
+    if (signUpForm.userType === "Master Admin") {
       setUserImage(null);
     }
-  }, [userType]);
+  }, [signUpForm.userType]);
+
+  const handleChange = (field, value) => {
+    setSignUpForm((prevState) => ({
+      ...prevState,
+      [field]: value,
+    }));
+  };
+
   const handleImageUpload = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -60,7 +74,7 @@ const SignupPage = () => {
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 1,
@@ -81,35 +95,81 @@ const SignupPage = () => {
     setUserImage(null);
   };
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     if (
-      !email ||
-      !password ||
-      !confirmPassword ||
-      !name ||
-      !schoolName ||
-      !department ||
-      !registerNumber ||
-      !rollNumber ||
-      !phoneNumber ||
-      !userType ||
-      (userType !== "Master Admin" && !userImage)
+      !signUpForm.email ||
+      !signUpForm.password ||
+      !signUpForm.confirmPassword ||
+      !signUpForm.name ||
+      !signUpForm.schoolName ||
+      !signUpForm.department ||
+      !signUpForm.registerNumber ||
+      !signUpForm.rollNumber ||
+      !signUpForm.phoneNumber ||
+      !signUpForm.userType
     ) {
-      Alert.alert("Error", "Please fill in all fields");
+      Alert.alert("Error", "Please fill in all required fields");
       return;
     }
-
-    if (password !== confirmPassword) {
+  
+    if (signUpForm.password !== signUpForm.confirmPassword) {
       Alert.alert("Error", "Passwords do not match");
       return;
     }
+  
+    if (!userImage && signUpForm.userType !== "Master Admin") {
+      Alert.alert("Please upload image");
+      return;
+    }
+  
+    setIsSubmitting(true);
+  
+    try {
+      let imageUrl = "";
+  
+      if (userImage) {
+        const response = await fetch(userImage);
+        const blob = await response.blob();
+        const imageRef = ref(storage, `user-images/${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+        const snapshot = await uploadBytes(imageRef, blob);
+        imageUrl = await getDownloadURL(snapshot.ref);
+      }
+  
+      const user = await signUp(
+        signUpForm.email,
+        signUpForm.password,
+        signUpForm.name,
+        signUpForm.schoolName,
+        signUpForm.department,
+        signUpForm.registerNumber,
+        signUpForm.rollNumber,
+        signUpForm.phoneNumber,
+        signUpForm.userType,
+        imageUrl,
+        signUpForm.universityName,
+        signUpForm.country,
+        signUpForm.location,
+        signUpForm.universityCode,
+        signUpForm.postcode,
+        signUpForm.city,
+        signUpForm.address
+      );
 
-    // Signup logic
-    // ...
+      if (user){
+        Alert.alert("Success", "Signup successful!");
+        navigation.navigate("Login")
 
-    navigation.navigate("OTPVerification", { userType });
-    // navigation.navigate("Pending", { userType });
+      }
+  
+      // navigation.navigate("OTPVerification", { userType: signUpForm.userType });
+    } catch (error) {
+      console.log("Error during signup:", error);
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+  
 
   return (
     <SafeAreaView style={styles.container}>
@@ -123,12 +183,16 @@ const SignupPage = () => {
           />
         </View>
 
-        <KeyboardAvoidingView style={styles.formContainer}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Sign Up to your Account</Text>
+        </View>
+
+        <KeyboardAvoidingView style={styles.formContainer} behavior="padding">
           <View style={styles.inputContainer}>
             <Text style={styles.label}>User Type:</Text>
             <Picker
-              selectedValue={userType}
-              onValueChange={(itemValue, itemIndex) => setUserType(itemValue)}
+              selectedValue={signUpForm.userType}
+              onValueChange={(itemValue) => handleChange("userType", itemValue)}
               style={styles.input}
             >
               <Picker.Item label="Choose User Type" value="" />
@@ -136,6 +200,21 @@ const SignupPage = () => {
               <Picker.Item label="Teacher" value="Teacher" />
               <Picker.Item label="Admin" value="Admin" />
               <Picker.Item label="Master Admin" value="Master Admin" />
+            </Picker>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Department:</Text>
+            <Picker
+              selectedValue={signUpForm.department}
+              onValueChange={(itemValue) => handleChange("department", itemValue)}
+              style={styles.input}
+            >
+              <Picker.Item label="Select Department" value="" />
+              <Picker.Item label="CSE" value="CSE" />
+              <Picker.Item label="ECE" value="ECE" />
+              <Picker.Item label="ME" value="ME" />
+              <Picker.Item label="CE" value="CE" />
             </Picker>
           </View>
 
@@ -148,8 +227,8 @@ const SignupPage = () => {
                 style={styles.inputIcon}
               />
               <TextInput
-                value={name}
-                onChangeText={(text) => setName(text)}
+                value={signUpForm.name}
+                onChangeText={(text) => handleChange("name", text)}
                 style={styles.input}
                 placeholder="Enter your name"
               />
@@ -165,27 +244,10 @@ const SignupPage = () => {
                 color="gray"
               />
               <TextInput
-                value={schoolName}
-                onChangeText={(text) => setSchoolName(text)}
+                value={signUpForm.schoolName}
+                onChangeText={(text) => handleChange("schoolName", text)}
                 style={styles.input}
                 placeholder="Enter your school name"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
-              <MaterialIcons
-                style={styles.inputIcon}
-                name="business"
-                size={24}
-                color="gray"
-              />
-              <TextInput
-                value={department}
-                onChangeText={(text) => setDepartment(text)}
-                style={styles.input}
-                placeholder="Enter your department name"
               />
             </View>
           </View>
@@ -199,14 +261,13 @@ const SignupPage = () => {
                 color="gray"
               />
               <TextInput
-                value={registerNumber}
-                onChangeText={(text) => setRegisterNumber(text)}
+                value={signUpForm.registerNumber}
+                onChangeText={(text) => handleChange("registerNumber", text)}
                 style={styles.input}
                 placeholder="Enter your register number"
               />
             </View>
           </View>
-
           <View style={styles.inputContainer}>
             <View style={styles.inputWrapper}>
               <MaterialCommunityIcons
@@ -216,8 +277,8 @@ const SignupPage = () => {
                 color="gray"
               />
               <TextInput
-                value={rollNumber}
-                onChangeText={(text) => setRollNumber(text)}
+                value={signUpForm.rollNumber}
+                onChangeText={(text) => handleChange("rollNumber", text)}
                 style={styles.input}
                 placeholder="Enter your roll number"
               />
@@ -233,8 +294,8 @@ const SignupPage = () => {
                 color="gray"
               />
               <TextInput
-                value={phoneNumber}
-                onChangeText={(text) => setPhoneNumber(text)}
+                value={signUpForm.phoneNumber}
+                onChangeText={(text) => handleChange("phoneNumber", text)}
                 style={styles.input}
                 placeholder="Enter your phone number"
               />
@@ -250,8 +311,8 @@ const SignupPage = () => {
                 color="gray"
               />
               <TextInput
-                value={email}
-                onChangeText={(text) => setEmail(text)}
+                value={signUpForm.email}
+                onChangeText={(text) => handleChange("email", text)}
                 style={styles.input}
                 placeholder="Enter your Email"
               />
@@ -267,8 +328,8 @@ const SignupPage = () => {
                 style={styles.inputIcon}
               />
               <TextInput
-                value={password}
-                onChangeText={(text) => setPassword(text)}
+                value={signUpForm.password}
+                onChangeText={(text) => handleChange("password", text)}
                 secureTextEntry={true}
                 style={styles.input}
                 placeholder="Enter your Password"
@@ -285,8 +346,8 @@ const SignupPage = () => {
                 style={styles.inputIcon}
               />
               <TextInput
-                value={confirmPassword}
-                onChangeText={(text) => setConfirmPassword(text)}
+                value={signUpForm.confirmPassword}
+                onChangeText={(text) => handleChange("confirmPassword", text)}
                 secureTextEntry={true}
                 style={styles.input}
                 placeholder="Confirm Password"
@@ -294,8 +355,7 @@ const SignupPage = () => {
             </View>
           </View>
 
-          {/* Image upload */}
-          {!userImage && userType !== "Master Admin" && (
+          {!userImage && signUpForm.userType !== "Master Admin" && (
             <View style={styles.inputContainer}>
               <Pressable
                 onPress={handleImageUpload}
@@ -316,20 +376,8 @@ const SignupPage = () => {
               <Image source={{ uri: userImage }} style={styles.imagePreview} />
             </View>
           )}
-          {/* <View style={styles.inputContainer}>
-            <Pressable onPress={handleImageUpload} style={styles.uploadButton}>
-              <Text style={styles.buttonText}>Upload Image</Text>
-            </Pressable>
-            {userImage && (
-              <Image
-                source={{ uri: userImage.assets[0].uri }}
-                style={styles.imagePreview}
-              />
-            )}
-          </View> */}
 
-          {/* Additional fields for Master Admin */}
-          {userType === "Master Admin" && (
+          {signUpForm.userType === "Master Admin" && (
             <KeyboardAvoidingView>
               <>
                 <View style={styles.inputContainer}>
@@ -341,8 +389,10 @@ const SignupPage = () => {
                       color="gray"
                     />
                     <TextInput
-                      value={universityName}
-                      onChangeText={(text) => setUniversityName(text)}
+                      value={signUpForm.universityName}
+                      onChangeText={(text) =>
+                        handleChange("universityName", text)
+                      }
                       style={styles.input}
                       placeholder="Enter university name"
                     />
@@ -357,8 +407,8 @@ const SignupPage = () => {
                       color="gray"
                     />
                     <TextInput
-                      value={country}
-                      onChangeText={(text) => setCountry(text)}
+                      value={signUpForm.country}
+                      onChangeText={(text) => handleChange("country", text)}
                       style={styles.input}
                       placeholder="Enter country"
                     />
@@ -373,8 +423,8 @@ const SignupPage = () => {
                       color="gray"
                     />
                     <TextInput
-                      value={location}
-                      onChangeText={(text) => setLocation(text)}
+                      value={signUpForm.location}
+                      onChangeText={(text) => handleChange("location", text)}
                       style={styles.input}
                       placeholder="Enter location"
                     />
@@ -389,8 +439,10 @@ const SignupPage = () => {
                       color="gray"
                     />
                     <TextInput
-                      value={universityCode}
-                      onChangeText={(text) => setUniversityCode(text)}
+                      value={signUpForm.universityCode}
+                      onChangeText={(text) =>
+                        handleChange("universityCode", text)
+                      }
                       style={styles.input}
                       placeholder="Enter university code"
                     />
@@ -405,8 +457,8 @@ const SignupPage = () => {
                       color="gray"
                     />
                     <TextInput
-                      value={postcode}
-                      onChangeText={(text) => setPostcode(text)}
+                      value={signUpForm.postcode}
+                      onChangeText={(text) => handleChange("postcode", text)}
                       style={styles.input}
                       placeholder="Enter postcode"
                     />
@@ -421,8 +473,8 @@ const SignupPage = () => {
                       color="gray"
                     />
                     <TextInput
-                      value={city}
-                      onChangeText={(text) => setCity(text)}
+                      value={signUpForm.city}
+                      onChangeText={(text) => handleChange("city", text)}
                       style={styles.input}
                       placeholder="Enter city"
                     />
@@ -436,9 +488,9 @@ const SignupPage = () => {
                       size={24}
                       color="gray"
                     />
-                    <TextInput
-                      value={address}
-                      onChangeText={(text) => setAddress(text)}
+                                       <TextInput
+                      value={signUpForm.address}
+                      onChangeText={(text) => handleChange("address", text)}
                       style={styles.input}
                       placeholder="Enter address"
                     />
@@ -447,28 +499,12 @@ const SignupPage = () => {
               </>
             </KeyboardAvoidingView>
           )}
-          {/* <View
-            style={{
-              marginTop: 12,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Text>Keep me logged in</Text>
 
-            <Text style={{ color: "#007FFF", fontWeight: "500" }}>
-              Forgot Password
-            </Text>
-          </View> */}
-
-          {/* <View style={styles.additionalLinksContainer}>
-            <Text style={styles.text}>Keep me logged in</Text>
-            <Text style={styles.additionalLinksText}>Forgot Password</Text>
-          </View> */}
           <View style={{ marginTop: 10 }} />
           <Pressable onPress={handleSignup} style={styles.registerButton}>
-            <Text style={styles.buttonText}>Register</Text>
+            <Text style={styles.buttonText}>
+              {isSubmitting ? "Please wait" : "Register"}
+            </Text>
           </Pressable>
 
           <Pressable
@@ -492,17 +528,25 @@ export default SignupPage;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "white",
+    backgroundColor: "#f8f8f8", // Light gray background
     alignItems: "center",
-    marginTop: 50,
   },
   text: {
-    color: "gray",
+    color: "#333", // Dark gray text
     fontSize: 14,
     paddingEnd: 10,
   },
   scrollContainer: {
     flexGrow: 1,
+  },
+  header: {
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginTop: 12,
+    color: "#041E42",
   },
   logoContainer: {
     borderRadius: 75,
@@ -525,7 +569,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#D0D0D0",
+    backgroundColor: "#e0e0e0", // Light gray input background
     paddingVertical: 5,
     borderRadius: 5,
   },
@@ -533,7 +577,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   input: {
-    color: "gray",
+    color: "#333", // Dark gray input text
     marginVertical: 10,
     width: 300,
     fontSize: 16,
@@ -542,7 +586,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   uploadButton: {
-    backgroundColor: "#FEBE10",
+    backgroundColor: "#4a90e2", // Blue upload button
     borderRadius: 6,
     padding: 15,
     alignItems: "center",
@@ -550,7 +594,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   removeButton: {
-    backgroundColor: "red",
+    backgroundColor: "#e74c3c", // Red remove button
     borderRadius: 6,
     padding: 15,
     alignItems: "center",
@@ -564,7 +608,7 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     width: 200,
-    backgroundColor: "#FEBE10",
+    backgroundColor: "#4a90e2", // Blue register button
     borderRadius: 6,
     padding: 15,
     alignItems: "center",
@@ -574,7 +618,7 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   buttonText: {
-    color: "white",
+    color: "white", // White button text
     fontSize: 16,
     fontWeight: "bold",
   },
@@ -583,21 +627,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20, // Adjust this value as needed
+    paddingHorizontal: 20,
   },
-
   additionalLinksText: {
     paddingLeft: 5,
-    color: "#007FFF",
+    color: "#007FFF", // Blue link text
     fontWeight: "500",
   },
-
   buttonContainer: {
-    marginTop: 20, // Adjust this value as needed
+    marginTop: 20,
   },
   signIn: {
-    color: "blue",
+    color: "#4a90e2", // Blue sign in text
     fontSize: 14,
     marginBottom: 10,
   },
 });
+

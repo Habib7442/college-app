@@ -1,8 +1,14 @@
 import { StyleSheet, Text, View } from "react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollView } from "react-native-gesture-handler";
+import { collection, getDocs, query } from "firebase/firestore";
+import { db } from "../../../lib/firebase";
+import { getAuth } from "firebase/auth";
+import moment from "moment";
 
 const StudentAttendanceScreen = () => {
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [loading, setIsLoading] = useState(false);
   // Sample data for subjects attendance
   const subjectsAttendance = [
     { subject: "Math", absent: 2, present: 18 },
@@ -10,56 +16,91 @@ const StudentAttendanceScreen = () => {
     // Add more subjects as needed
   ];
 
+  let totalClasses = 20;
+
   // Function to calculate attendance percentage
-  const calculateAttendancePercentage = (absent, present) => {
-    const total = absent + present;
-    return ((present / total) * 100).toFixed(2);
+  const calculateAttendancePercentage = (totalClasses, present) => {
+    return ((present / totalClasses) * 100).toFixed(2);
   };
+  const auth = getAuth();
+  const currentUser = auth?.currentUser?.email;
+
+
+  const fetchAttendanceData = async () => {
+    const collections = collection(db, "Students");
+    const allDocs = await getDocs(collections);
+    const fetchedDocs = [];
+    for (const allDoc of allDocs.docs) {
+      const attendanceCollection = collection(
+        db,
+        "Students",
+        allDoc.id,
+        "attendance"
+      );
+      const q = query(attendanceCollection);
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedDocs.push({
+          authId: doc.id,
+          ...data,
+        });
+      });
+    }
+    setAttendanceData(fetchedDocs);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchAttendanceData();
+  }, []);
+
 
   return (
     <ScrollView>
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerText}>Subject Attendance</Text>
-          <Text style={styles.date}>{new Date().toLocaleDateString()}</Text>
+          {/* <Text style={styles.date}>{new Date().toLocaleDateString()}</Text> */}
         </View>
-        {subjectsAttendance.map((subject, index) => (
-          <View key={index} style={styles.card}>
-            <Text style={styles.subjectName}>{subject.subject}</Text>
-            <View style={styles.attendanceRow}>
-              <View style={[styles.attendanceItem, styles.absent]}>
-                <Text style={styles.attendanceText}>
-                  Absent: {subject.absent}
-                </Text>
+        {attendanceData
+          .filter((data) => data.email === currentUser) // Filter the array
+          .map((attendance, index) => {
+            const date = attendance.date.seconds
+              ? new Date(attendance.date.seconds * 1000)
+              : null;
+            return (
+              <View key={index} style={styles.card}>
+                <Text style={styles.subjectName}>{attendance.subject}</Text>
+                {date && (
+                  <Text style={styles.dateText}>
+                    Date: {moment(date).format("MMMM Do YYYY, h:mm:ss a")}
+                  </Text>
+                )}
+                <View style={styles.attendanceRow}>
+                  {/* <View style={[styles.attendanceItem, styles.absent]}>
+                    <Text style={styles.attendanceText}>
+                      Absent:
+                    </Text>
+                  </View> */}
+                  <View style={[styles.attendanceItem, styles.present]}>
+                    <Text style={styles.attendanceText}>
+                      Present: {/* Calculate present count */}
+                    </Text>
+                  </View>
+                </View>
+                {/* <View style={styles.attendanceContainer}>
+                  <Text style={styles.attendanceLabel}>Subject Attendance</Text>
+                  <Text style={styles.percentage}>
+                    {calculateAttendancePercentage(attendance.present)}%
+                  </Text>
+                </View> */}
+                {/* <View style={styles.progressContainer}>
+                  <View style={[styles.progressBar, { width: `` }]} />
+                </View> */}
               </View>
-              <View style={[styles.attendanceItem, styles.present]}>
-                <Text style={styles.attendanceText}>
-                  Present: {subject.present}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.attendanceContainer}>
-              <Text style={styles.attendanceLabel}>Subject Attendance</Text>
-              <Text style={styles.percentage}>
-                {calculateAttendancePercentage(subject.absent, subject.present)}
-                %
-              </Text>
-            </View>
-            <View style={styles.progressContainer}>
-              <View
-                style={[
-                  styles.progressBar,
-                  {
-                    width: `${calculateAttendancePercentage(
-                      subject.absent,
-                      subject.present
-                    )}%`,
-                  },
-                ]}
-              />
-            </View>
-          </View>
-        ))}
+            );
+          })}
       </View>
     </ScrollView>
   );
@@ -140,5 +181,8 @@ const styles = StyleSheet.create({
   },
   percentage: {
     textAlign: "center",
+  },
+  dateText: {
+    marginBottom: 5,
   },
 });
