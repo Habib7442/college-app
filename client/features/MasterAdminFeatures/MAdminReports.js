@@ -87,13 +87,11 @@ const TeacherReportsScreen = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  console.log(reports,"reports")
 
   useEffect(() => {
     const auth = getAuth();
     const user = auth.currentUser;
 
-    console.log(user);
   },[])
 
   useEffect(() => {
@@ -101,7 +99,6 @@ const TeacherReportsScreen = () => {
       try {
         const fetchedReports = await fetchReportsFromSubcollections("Teachers");
         setReports(fetchedReports);
-        console.log(fetchedReports);
       } catch (error) {
         console.error("Error fetching teacher reports:", error);
       } finally {

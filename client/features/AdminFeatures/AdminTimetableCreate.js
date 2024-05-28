@@ -14,13 +14,21 @@ import { getFirestore, collection, addDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase"; // Ensure you import your Firebase configuration
 import { getAuth } from "firebase/auth";
 
-const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const daysOfWeek = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 const AdminTimetableCreate = () => {
-  const [department, setDepartment] = useState("CEN");
-  const [semester, setSemester] = useState("Fall");
+  const [department, setDepartment] = useState("");
+  const [semester, setSemester] = useState("");
+  const [year, setYear] = useState("");
   const [timetable, setTimetable] = useState({
-    Mon: {},
+    Monday: {},
   });
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
 
@@ -55,19 +63,21 @@ const AdminTimetableCreate = () => {
 
       // Convert the timetable object to an array
       const flatTimetable = Object.entries(timetable).flatMap(([day, slots]) =>
-        Object.entries(slots).map(([slot, { subject, start, end, teacher }]) => ({
+        Object.entries(slots).map(([slot, { subject, start, end }]) => ({
           day,
           slot,
           subject,
-          teacher,
           start,
           end,
         }))
       );
 
-      await addDoc(collection(db, "Admins", user.uid, "timetables"), {
+      const userDocRef = await addDoc(collection(db, "Admins"), {});
+
+      await addDoc(collection(db, "Admins", userDocRef.id, "timetables"), {
         department,
         semester,
+        year,
         timetable: flatTimetable,
         createdAt: moment().format("YYYY-MM-DD HH:mm:ss"),
       });
@@ -108,7 +118,7 @@ const AdminTimetableCreate = () => {
 
   const clearInputFields = () => {
     setTimetable({
-      Mon: {},
+      Monday: {},
     });
     setCurrentDayIndex(0);
   };
@@ -117,7 +127,7 @@ const AdminTimetableCreate = () => {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.timetableContainer}>
         <Text style={styles.headerText}>Create Timetable</Text>
-        {/* Department and semester pickers */}
+        {/* Department, year and semester pickers */}
         <View style={styles.pickerContainer}>
           <Text style={styles.labelText}>Department:</Text>
           <Picker
@@ -125,10 +135,23 @@ const AdminTimetableCreate = () => {
             onValueChange={(value) => setDepartment(value)}
             style={styles.picker}
           >
+            <Picker.Item label="Select department" value="" />
             <Picker.Item label="CEN" value="CEN" />
             <Picker.Item label="EEE" value="EEE" />
             <Picker.Item label="CSE" value="CSE" />
             {/* Add more departments as needed */}
+          </Picker>
+          <Text style={styles.labelText}>Year:</Text>
+          <Picker
+            selectedValue={year}
+            onValueChange={(value) => setYear(value)}
+            style={styles.picker}
+          >
+            <Picker.Item label="Select year" value="" />
+            <Picker.Item label="1st year" value="1st year" />
+            <Picker.Item label="2nd year" value="2nd year" />
+            <Picker.Item label="3rd year" value="3rd year" />
+            <Picker.Item label="4th year" value="4th year" />
           </Picker>
           <Text style={styles.labelText}>Semester:</Text>
           <Picker
@@ -136,54 +159,44 @@ const AdminTimetableCreate = () => {
             onValueChange={(value) => setSemester(value)}
             style={styles.picker}
           >
-            <Picker.Item label="Fall" value="Fall" />
-            <Picker.Item label="Spring" value="Spring" />
-            {/* Add more semesters as needed */}
+            <Picker.Item label="Select semester" value="" />
+            <Picker.Item label="1" value="1" />
+            <Picker.Item label="2" value="2" />
           </Picker>
         </View>
 
         {Object.entries(timetable).map(([day, slots]) => (
           <View key={day} style={styles.dayContainer}>
             <Text style={styles.dayHeaderText}>{day}</Text>
-            {Array.from({ length: 9 }, (_, index) => index + 1).map(
-              (slot) => (
-                <View key={slot} style={styles.slotContainer}>
-                  <Text style={styles.slotHeaderText}>Slot {slot}</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Subject Name"
-                    value={slots[`Slot ${slot}`]?.subject || ""}
-                    onChangeText={(text) =>
-                      handleSlotChange(day, `Slot ${slot}`, "subject", text)
-                    }
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Teacher Name"
-                    value={slots[`Slot ${slot}`]?.teacher || ""}
-                    onChangeText={(text) =>
-                      handleSlotChange(day, `Slot ${slot}`, "teacher", text)
-                    }
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Start Time"
-                    value={slots[`Slot ${slot}`]?.start || ""}
-                    onChangeText={(text) =>
-                      handleSlotChange(day, `Slot ${slot}`, "start", text)
-                    }
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="End Time"
-                    value={slots[`Slot ${slot}`]?.end || ""}
-                    onChangeText={(text) =>
-                      handleSlotChange(day, `Slot ${slot}`, "end", text)
-                    }
-                  />
-                </View>
-              )
-            )}
+            {Array.from({ length: 9 }, (_, index) => index + 1).map((slot) => (
+              <View key={slot} style={styles.slotContainer}>
+                <Text style={styles.slotHeaderText}>Slot {slot}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Subject Name"
+                  value={slots[`Slot ${slot}`]?.subject || ""}
+                  onChangeText={(text) =>
+                    handleSlotChange(day, `Slot ${slot}`, "subject", text)
+                  }
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Start Time"
+                  value={slots[`Slot ${slot}`]?.start || ""}
+                  onChangeText={(text) =>
+                    handleSlotChange(day, `Slot ${slot}`, "start", text)
+                  }
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="End Time"
+                  value={slots[`Slot ${slot}`]?.end || ""}
+                  onChangeText={(text) =>
+                    handleSlotChange(day, `Slot ${slot}`, "end", text)
+                  }
+                />
+              </View>
+            ))}
           </View>
         ))}
 

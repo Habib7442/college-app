@@ -51,14 +51,12 @@ function StudentTimetableScreen() {
       }
 
       const timetableData = timetableSnapshot.docs.map((doc) => {
-        console.log("Doc data:", doc.data()); // Debug log
         return {
           id: doc.id,
           ...doc.data(),
         };
       });
 
-      console.log("Timetable data:", timetableData); // Debug log
 
       // Filter timetable data based on the current day
       const filteredTimetable = timetableData.filter((timetable) => {

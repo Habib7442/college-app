@@ -1,43 +1,121 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
-import calendarData from "../../database/calendar.json";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  RefreshControl,
+  ActivityIndicator,
+} from "react-native";
+import { db } from "../../../lib/firebase"; // Ensure you import your Firebase configuration
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { Picker } from "@react-native-picker/picker";
 
-const daysOfWeek = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+const EventTimetableScreen = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [teachers, setTeachers] = useState([]);
+  const [filteredTeachers, setFilteredTeachers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-const EventTimetableScreen = ({ dayIndex }) => {
-  const day = daysOfWeek[dayIndex];
-  const today = new Date().toLocaleString();
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
 
-  const events = calendarData[day] || [];
+  const fetchTeachers = async () => {
+    setLoading(true);
+    const teacherCollection = collection(db, "Teachers");
+    const teacherDocs = await getDocs(teacherCollection);
+
+    const fetchedTeachers = [];
+
+    for (const teacherDoc of teacherDocs.docs) {
+      const authCollection = collection(db, "Teachers", teacherDoc.id, "auth");
+      const q = query(authCollection, where("isAssigned", "==", true));
+      const querySnapshot = await getDocs(q);
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedTeachers.push({
+          id: teacherDoc.id,
+          authId: doc.id,
+          ...data,
+        });
+      });
+    }
+    setTeachers(fetchedTeachers);
+    setLoading(false);
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchTeachers().then(() => setRefreshing(false));
+  }, []);
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    const filteredTeachers = teachers.filter((teacher) => {
+      const teacherName = teacher.name.toLowerCase();
+      const department = teacher.department.toLowerCase();
+      const queryLowercase = query.toLowerCase();
+      return (
+        teacherName.includes(queryLowercase) ||
+        department.includes(queryLowercase)
+      );
+    });
+    setFilteredTeachers(filteredTeachers);
+  };
+
+  const renderTeacher = ({ item }) => {
+    const { name, department, totalCredits, subjects } = item;
+    return (
+      <View style={styles.teacherCard}>
+        <Text style={styles.teacherName}>{name}</Text>
+        {/* <Text style={styles.teacherDepartment}>Department: {department}</Text> */}
+        <View style={styles.subjectsContainer}>
+          <Text style={styles.subjectsTitle}>Subjects:</Text>
+          {subjects.map((subject, index) => (
+            <Text key={index} style={styles.subjectText}>
+              {subject.name}
+            </Text>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  const renderHeader = () => (
+    <View>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search by teacher name or department"
+        value={searchQuery}
+        onChangeText={handleSearch}
+      />
+      {loading && <ActivityIndicator size="large" color="#0000ff" />}
+    </View>
+  );
+
+  const renderFooter = () => (
+    <View>
+      {teachers.length === 0 && !loading && <Text>No data found</Text>}
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      <View style={styles.dateTimeContainer}>
-        <Text style={styles.dateTimeText}>Today's date & time: {today}</Text>
-      </View>
-      <View style={styles.eventsContainer}>
-        {events.length > 0 ? (
-          events.map((event, index) => (
-            <View key={index} style={styles.eventContainer}>
-              <Text style={styles.eventName}>{event.eventName}</Text>
-              <View style={styles.separator} />
-              <Text>Date: {event.date}</Text>
-              <Text>Time: {event.time}</Text>
-              <Text>Description: {event.description}</Text>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.noEvent}>No event today</Text>
-        )}
-      </View>
+      <FlatList
+        data={searchQuery ? filteredTeachers : teachers}
+        renderItem={renderTeacher}
+        keyExtractor={(item) => item.id.toString()}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
+      />
     </View>
   );
 };
@@ -45,40 +123,49 @@ const EventTimetableScreen = ({ dayIndex }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f0f0f0",
-    padding: 20,
-  },
-  dateTimeContainer: {
-    marginBottom: 20,
-  },
-  dateTimeText: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  eventsContainer: {
-    flex: 1,
-  },
-  eventContainer: {
-    marginBottom: 20,
-    padding: 10,
     backgroundColor: "#fff",
-    borderRadius: 8,
-    elevation: 2,
+    padding: 16,
   },
-  separator: {
-    height: 1,
-    backgroundColor: "#ccc",
-    marginVertical: 5,
+  searchInput: {
+    height: 40,
+    borderColor: "#ccc",
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    marginBottom: 16,
   },
-  eventName: {
+  teacherCard: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 10,
+  },
+  teacherName: {
     fontSize: 18,
     fontWeight: "bold",
   },
-  noEvent: {
+  teacherDepartment: {
     fontSize: 16,
-    fontStyle: "italic",
+    color: "#333",
+    marginTop: 8,
+  },
+  teacherCredits: {
+    fontSize: 16,
+    color: "#333",
+    marginTop: 8,
+  },
+  subjectsContainer: {
+    marginTop: 8,
+  },
+  subjectsTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  subjectText: {
+    fontSize: 14,
+    color: "#333",
   },
 });
 
 export default EventTimetableScreen;
-

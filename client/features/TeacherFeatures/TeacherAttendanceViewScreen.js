@@ -26,7 +26,6 @@ import * as MailComposer from "expo-mail-composer";
 import * as FileSystem from "expo-file-system";
 import Checkbox from "expo-checkbox";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { getAuth } from "firebase/auth";
 
 const TeacherAttendanceViewScreen = () => {
   const [semester, setSemester] = useState("");
@@ -51,36 +50,42 @@ const TeacherAttendanceViewScreen = () => {
       const fetchedStudents = [];
 
       for (const studentDoc of studentDocs.docs) {
-        const authCollection = collection(
+        const attendanceCollection = collection(
           db,
           "Students",
           studentDoc.id,
-          "auth"
+          "attendance"
         );
-        const q = query(authCollection, where("isApproved", "==", true));
-        const querySnapshot = await getDocs(q);
+        const attendanceDocs = await getDocs(attendanceCollection);
 
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
+        if (attendanceDocs.size > 0) {
+          const studentData = studentDoc.data();
+          const attendanceData = attendanceDocs.docs.map((doc) => doc.data());
+
           fetchedStudents.push({
             id: studentDoc.id,
-            authId: doc.id,
-            ...data,
+            ...studentData,
+            attendanceData,
           });
-        });
+        }
       }
+
       setStudents(fetchedStudents);
-      setFilteredStudents(fetchedStudents); // Set filtered students to all students initially
+      setFilteredStudents(fetchedStudents);
     } catch (error) {
       console.error("Error fetching students:", error);
     }
   };
 
+
   const handleFilterStudents = () => {
     if (department) {
-      const filtered = students.filter(
-        (student) =>
-          student.department.toLowerCase() === department.toLowerCase()
+      const filtered = students.filter((student) =>
+        student.attendanceData.some(
+          (attendance) =>
+            attendance.department &&
+            attendance.department.toLowerCase() === department.toLowerCase()
+        )
       );
       setFilteredStudents(filtered);
     } else {
@@ -94,120 +99,7 @@ const TeacherAttendanceViewScreen = () => {
     setFilteredStudents(students); // Reset filtered students to all students
   };
 
-  const handleCapturePhoto = async () => {
-    let result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (!result.cancelled) {
-      setPhoto(result.assets[0].uri);
-    }
-  };
-
-  const submitAttendance = async () => {
-    setIsSubmitting(true); // Start loading state
-    let imageUrl = "";
-    let imageUri = "";
-
-    if (photo) {
-      const response = await fetch(photo);
-      const blob = await response.blob();
-      const imageRef = ref(
-        storage,
-        `attendance/${Date.now()}-${Math.random().toString(36)}`
-      );
-      await uploadBytes(imageRef, blob);
-      imageUrl = await getDownloadURL(imageRef);
-
-      // Handle file URI for Android
-      if (Platform.OS === "android") {
-        const downloadedFile =
-          FileSystem.cacheDirectory + "attendancePhoto.jpg";
-        const { uri } = await FileSystem.downloadAsync(
-          imageUrl,
-          downloadedFile
-        );
-        imageUri = uri;
-      } else {
-        imageUri = imageUrl;
-      }
-    }
-
-    const emailBody = `Dear Student,
-  
-  Your attendance has been taken successfully for the subject: ${subject}.
-  
-  Regards,
-  Teacher`;
-
-    const emailOptions = {
-      recipients: selectedStudents.map((student) => student.email),
-      subject: "Attendance Confirmation",
-      body: emailBody,
-      attachments: imageUri ? [imageUri] : [],
-    };
-
-    try {
-      const result = await MailComposer.composeAsync(emailOptions);
-      if (result.status === "sent") {
-        console.log("Emails sent to all selected students");
-      } else {
-        console.log("Email sending cancelled or failed");
-      }
-    } catch (error) {
-      console.error("Error sending emails:", error);
-    }
-
-    // Save attendance data for selected students
-    const attendanceData = {
-      subject,
-      date: new Date(),
-      imageUrl: imageUrl || null,
-    };
-
-    const batch = writeBatch(db);
-    selectedStudents.forEach((student) => {
-      const attendanceRef = doc(
-        db,
-        "Students",
-        student.id,
-        "attendance",
-        Date.now().toString()
-      );
-      const studentAttendanceData = {
-        ...attendanceData,
-        email: student.email,
-      };
-      batch.set(attendanceRef, studentAttendanceData);
-    });
-
-    await batch.commit();
-
-    setSelectedStudents([]);
-    setPhoto(null);
-    setIsSubmitting(false); // End loading state
-
-    Alert.alert(
-      "Attendance Submitted",
-      "Attendance has been successfully submitted."
-    );
-  };
-
-  const handleStudentSelection = (student) => {
-    const index = selectedStudents.findIndex(
-      (selected) => selected.id === student.id
-    );
-    if (index !== -1) {
-      const updatedSelectedStudents = [...selectedStudents];
-      updatedSelectedStudents.splice(index, 1);
-      setSelectedStudents(updatedSelectedStudents);
-    } else {
-      setSelectedStudents([...selectedStudents, student]);
-    }
-  };
+  console.log(filteredStudents, "fill");
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -241,59 +133,35 @@ const TeacherAttendanceViewScreen = () => {
         data={filteredStudents}
         keyExtractor={(item, index) => index.toString()}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.studentInfo}>
-              <Text>{`Student Name: ${item.name}`}</Text>
-              <Text>{`Department: ${item.department}`}</Text>
-              <Text>{`Roll No: ${item.rollNumber}`}</Text>
-            </View>
-            <View style={styles.checkboxContainer}>
-              <Checkbox
-                value={selectedStudents.some(
-                  (student) => student.id === item.id
-                )}
-                onValueChange={() => handleStudentSelection(item)}
-              />
-            </View>
-            <Image
-              style={styles.studentImage}
-              source={{ uri: item.imageUrl }}
-            />
-          </View>
+          <>
+            {item.attendanceData.map((attendance, index) => (
+              <View key={index} style={styles.card}>
+                <View style={styles.studentInfo}>
+                  <Text>{`Student Name: ${attendance.name}`}</Text>
+                  <Text>{`Department: ${attendance.department}`}</Text>
+                  <Text>{`Roll No: ${attendance.rollNumber}`}</Text>
+                </View>
+                <View style={styles.attendanceInfo}>
+                  <Text>{`Subject: ${attendance.subject}`}</Text>
+                  <Text>{`Date: ${attendance.date
+                    .toDate()
+                    .toLocaleString()}`}</Text>
+                  {attendance.imageUrl && (
+                    <Image
+                      style={styles.attendanceImage}
+                      source={{ uri: attendance.imageUrl }}
+                    />
+                  )}
+                </View>
+              </View>
+            ))}
+          </>
         )}
-        ListHeaderComponent={() => (
-          <View style={styles.container}>
-            <View style={styles.pickerContainer}>
-              <Text>Select Subject:</Text>
-              <Picker
-                selectedValue={subject}
-                onValueChange={(itemValue, itemIndex) => setSubject(itemValue)}
-                style={styles.picker}
-              >
-                <Picker.Item label="Select Subject" value="" />
-                <Picker.Item label="Subject 1" value="Subject 1" />
-                <Picker.Item label="Subject 2" value="Subject 2" />
-                {/* Add more subjects as needed */}
-              </Picker>
-            </View>
-
-            {photo && (
-              <Image source={{ uri: photo }} style={styles.imagePreview} />
-            )}
-          </View>
-        )}
-        ListEmptyComponent={() => <Text>No data found</Text>}
+        ListEmptyComponent={() => <Text>No attendance data found</Text>}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       />
-      <Button title="Take Attendance Photo" onPress={handleCapturePhoto} />
-      <Button
-        title={isSubmitting ? "Submitting..." : "Submit Attendance"}
-        onPress={submitAttendance}
-        disabled={isSubmitting}
-      />
-      {isSubmitting && <ActivityIndicator size="large" color="#0000ff" />}
     </View>
   );
 };
@@ -315,7 +183,7 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
   },
   card: {
-    flexDirection: "row",
+    flexDirection: "col",
     alignItems: "center",
     backgroundColor: "#fff",
     borderRadius: 10,
@@ -347,5 +215,17 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
     marginVertical: 16,
     borderRadius: 8,
+  },
+  attendanceInfo: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    borderRadius: 5,
+  },
+  attendanceImage: {
+    width: 100,
+    height: 100,
+    marginTop: 10,
   },
 });

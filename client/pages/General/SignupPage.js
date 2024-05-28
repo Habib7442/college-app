@@ -30,7 +30,7 @@ const SignupPage = () => {
     schoolName: "",
     department: "",
     registerNumber: "",
-    rollNumber: "",
+    rollNumber: "", // Keep this field for now
     phoneNumber: "",
     userType: "",
     universityName: "",
@@ -40,6 +40,7 @@ const SignupPage = () => {
     postcode: "",
     city: "",
     address: "",
+    qualification: "", // Add the qualification field
   });
 
   const [userImage, setUserImage] = useState(null);
@@ -104,37 +105,48 @@ const SignupPage = () => {
       !signUpForm.schoolName ||
       !signUpForm.department ||
       !signUpForm.registerNumber ||
-      !signUpForm.rollNumber ||
+      (signUpForm.userType === "Student" && !signUpForm.rollNumber) ||
       !signUpForm.phoneNumber ||
-      !signUpForm.userType
+      !signUpForm.userType ||
+      (signUpForm.userType !== "Student" && !signUpForm.qualification)
     ) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
     }
-  
+
     if (signUpForm.password !== signUpForm.confirmPassword) {
       Alert.alert("Error", "Passwords do not match");
       return;
     }
-  
-    if (!userImage && signUpForm.userType !== "Master Admin") {
+
+    if (
+      (signUpForm.userType !== "Master Admin" &&
+        signUpForm.userType !== "Admin" &&
+        !userImage) ||
+      ((signUpForm.userType === "Student" ||
+        signUpForm.userType === "Teacher") &&
+        !userImage)
+    ) {
       Alert.alert("Please upload image");
       return;
     }
-  
+
     setIsSubmitting(true);
-  
+
     try {
       let imageUrl = "";
-  
+
       if (userImage) {
         const response = await fetch(userImage);
         const blob = await response.blob();
-        const imageRef = ref(storage, `user-images/${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+        const imageRef = ref(
+          storage,
+          `user-images/${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        );
         const snapshot = await uploadBytes(imageRef, blob);
         imageUrl = await getDownloadURL(snapshot.ref);
       }
-  
+
       const user = await signUp(
         signUpForm.email,
         signUpForm.password,
@@ -152,16 +164,14 @@ const SignupPage = () => {
         signUpForm.universityCode,
         signUpForm.postcode,
         signUpForm.city,
-        signUpForm.address
+        signUpForm.address,
+        signUpForm.qualification || "" // Ensure qualification is not undefined
       );
 
-      if (user){
+      if (user) {
         Alert.alert("Success", "Signup successful!");
-        navigation.navigate("Login")
-
+        navigation.navigate("Login");
       }
-  
-      // navigation.navigate("OTPVerification", { userType: signUpForm.userType });
     } catch (error) {
       console.log("Error during signup:", error);
       Alert.alert("Error", error.message);
@@ -169,7 +179,6 @@ const SignupPage = () => {
       setIsSubmitting(false);
     }
   };
-  
 
   return (
     <SafeAreaView style={styles.container}>
@@ -207,7 +216,9 @@ const SignupPage = () => {
             <Text style={styles.label}>Department:</Text>
             <Picker
               selectedValue={signUpForm.department}
-              onValueChange={(itemValue) => handleChange("department", itemValue)}
+              onValueChange={(itemValue) =>
+                handleChange("department", itemValue)
+              }
               style={styles.input}
             >
               <Picker.Item label="Select Department" value="" />
@@ -264,26 +275,46 @@ const SignupPage = () => {
                 value={signUpForm.registerNumber}
                 onChangeText={(text) => handleChange("registerNumber", text)}
                 style={styles.input}
-                placeholder="Enter your register number"
+                placeholder="Enter your registration number"
               />
             </View>
           </View>
-          <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
-              <MaterialCommunityIcons
-                style={styles.inputIcon}
-                name="rollupjs"
-                size={24}
-                color="gray"
-              />
-              <TextInput
-                value={signUpForm.rollNumber}
-                onChangeText={(text) => handleChange("rollNumber", text)}
-                style={styles.input}
-                placeholder="Enter your roll number"
-              />
+          {signUpForm.userType !== "Student" && (
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <MaterialIcons
+                  style={styles.inputIcon}
+                  name="school"
+                  size={24}
+                  color="gray"
+                />
+                <TextInput
+                  value={signUpForm.qualification}
+                  onChangeText={(text) => handleChange("qualification", text)}
+                  style={styles.input}
+                  placeholder="Enter your qualification"
+                />
+              </View>
             </View>
-          </View>
+          )}
+          {signUpForm.userType === "Student" && (
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <MaterialCommunityIcons
+                  style={styles.inputIcon}
+                  name="rollupjs"
+                  size={24}
+                  color="gray"
+                />
+                <TextInput
+                  value={signUpForm.rollNumber}
+                  onChangeText={(text) => handleChange("rollNumber", text)}
+                  style={styles.input}
+                  placeholder="Enter your roll number"
+                />
+              </View>
+            </View>
+          )}
 
           <View style={styles.inputContainer}>
             <View style={styles.inputWrapper}>
@@ -355,16 +386,6 @@ const SignupPage = () => {
             </View>
           </View>
 
-          {!userImage && signUpForm.userType !== "Master Admin" && (
-            <View style={styles.inputContainer}>
-              <Pressable
-                onPress={handleImageUpload}
-                style={styles.uploadButton}
-              >
-                <Text style={styles.buttonText}>Upload Image</Text>
-              </Pressable>
-            </View>
-          )}
           {userImage && (
             <View style={styles.inputContainer}>
               <Pressable
@@ -488,7 +509,7 @@ const SignupPage = () => {
                       size={24}
                       color="gray"
                     />
-                                       <TextInput
+                    <TextInput
                       value={signUpForm.address}
                       onChangeText={(text) => handleChange("address", text)}
                       style={styles.input}
@@ -498,6 +519,17 @@ const SignupPage = () => {
                 </View>
               </>
             </KeyboardAvoidingView>
+          )}
+
+          {!userImage && (
+            <View style={styles.inputContainer}>
+              <Pressable
+                onPress={handleImageUpload}
+                style={styles.uploadButton}
+              >
+                <Text style={styles.buttonText}>Upload Image</Text>
+              </Pressable>
+            </View>
           )}
 
           <View style={{ marginTop: 10 }} />
@@ -643,4 +675,3 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 });
-

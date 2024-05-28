@@ -49,6 +49,7 @@ function TeacherTimetableScreen() {
 
   const fetchTimetable = async () => {
     try {
+      setIsLoading(true);
       const auth = getAuth();
       const user = auth.currentUser;
 
@@ -57,21 +58,31 @@ function TeacherTimetableScreen() {
         return;
       }
 
-      const timetablesCollection = collection(
-        db,
-        "Admins",
-        user.uid,
-        "timetables"
-      );
-      const timetableQuery = query(timetablesCollection);
-      const timetableSnapshot = await getDocs(timetableQuery);
+      const adminCollection = collection(db, "Admins");
+      const adminDocs = await getDocs(adminCollection);
 
-      const timetableData = timetableSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const fetchedTimetable = [];
 
-      setTimetable(timetableData);
+      for (const adminDoc of adminDocs.docs) {
+        const authCollection = collection(
+          db,
+          "Admins",
+          adminDoc.id,
+          "timetables"
+        );
+        const querySnapshot = await getDocs(authCollection);
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          fetchedTimetable.push({
+            id: adminDoc.id,
+            authId: doc.id,
+            ...data,
+          });
+        });
+      }
+
+      setTimetable(fetchedTimetable);
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching timetable: ", error);
@@ -83,45 +94,27 @@ function TeacherTimetableScreen() {
     return <Text>Loading...</Text>; // Replace this with your actual loading indicator
   }
 
-  console.log(timetable);
-  timetable.forEach((item) => {
-    item.timetable.forEach((nestedItem) => {
-      console.log(nestedItem);
-    });
-  });
+  // console.log(timetable, "time");
+  // timetable.forEach((item) => {
+  //   item.timetable.forEach((nestedItem) => {
+  //     console.log(nestedItem);
+  //   });
+  // });
 
   const renderTabView = ({ route }) => {
-    // Map route key to corresponding day in your data
     const dayMap = {
-      "sunday-": "Sun",
-      "monday-": "Mon",
-      "tuesday-": "Tue",
-      "wednesday-": "Wed",
-      "thursday-": "Thu",
-      "friday-": "Fri",
-      "saturday-": "Sat",
+      Sun: "Sunday",
+      Mon: "Monday",
+      Tue: "Tuesday",
+      Wed: "Wednesday",
+      Thu: "Thursday",
+      Fri: "Friday",
+      Sat: "Saturday",
     };
 
-    const routeDay = route.key.split('-')[0];
-    console.log("routeDay:", routeDay);
-
-    console.log("route.key:", route.key);
-    console.log("dayMap[route.key]:", dayMap[route.key]);
-
-    const dayTimetable = timetable.flatMap((timetableItem) => {
-      console.log("timetableItem.timetable:", timetableItem.timetable);
-      return timetableItem.timetable.filter((slot) => {
-        console.log(
-          "slot.day:",
-          slot.day,
-          "dayMap[route.key]:",
-          dayMap[route.key]
-        );
-        return slot.day === dayMap[route.key];
-      });
-    });
-
-    console.log("dayTimetable:", dayTimetable);
+    const dayTimetable = timetable.flatMap((timetableItem) =>
+      timetableItem.timetable.filter((slot) => slot.day === dayMap[route.name])
+    );
 
     switch (route.name) {
       case "Sun":

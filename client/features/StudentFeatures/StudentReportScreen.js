@@ -37,7 +37,6 @@ const StudentReportScreen = () => {
     const auth = getAuth();
     const user = auth.currentUser;
   
-    console.log(user);
   
     if (!user) {
       Alert.alert("Error", "User not authenticated");
@@ -56,7 +55,6 @@ const StudentReportScreen = () => {
   
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          console.log(data, "data")
           adminName = data.name
         });
       }

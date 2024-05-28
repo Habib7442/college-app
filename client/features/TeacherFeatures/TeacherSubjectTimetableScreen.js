@@ -12,10 +12,9 @@ const daysOfWeek = [
   "Saturday",
 ];
 
-const TeacherSubjectTimetableScreen = ({ dayIndex }) => {
+const TeacherSubjectTimetableScreen = ({ dayIndex, timetable }) => {
   const day = daysOfWeek[dayIndex];
-  const subjects = subjectData[day] || [];
-
+  const subjects = timetable || [];
   return (
     <View style={styles.container}>
       <Text style={styles.day}>{day}</Text>
@@ -23,7 +22,8 @@ const TeacherSubjectTimetableScreen = ({ dayIndex }) => {
         <View style={styles.subjectsContainer}>
           {subjects.map((subject, index) => (
             <View key={index} style={styles.subjectCard}>
-              <Text style={styles.time}>{subject.time}</Text>
+              <Text style={styles.time}>Start time: {subject.start}</Text>
+              <Text style={styles.time}>End time: {subject.end}</Text>
               <Text style={styles.subject}>{subject.subject}</Text>
               <Text style={styles.teacher}>{subject.teacher}</Text>
             </View>

@@ -8,8 +8,8 @@ const Tab = createMaterialTopTabNavigator();
 const TeacherAttendanceScreen = () => {
   return (
     <Tab.Navigator>
-      <Tab.Screen name="View" component={TeacherAttendanceViewScreen} />
       <Tab.Screen name="Taking" component={TeacherAttendanceTakingScreen} />
+      <Tab.Screen name="View" component={TeacherAttendanceViewScreen} />
     </Tab.Navigator>
   );
 };

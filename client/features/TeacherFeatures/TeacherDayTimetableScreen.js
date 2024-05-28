@@ -10,7 +10,7 @@ export function SundayScreen({ dayTimetable }) {
 
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={0} timetable={dayTimetable} />
+      <EventTimetableScreen />
       <TeacherSubjectTimetableScreen dayIndex={0} timetable={dayTimetable} />
     </ScrollView>
   );
@@ -23,7 +23,7 @@ export function MondayScreen({ dayTimetable }) {
 
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={1} timetable={dayTimetable} />
+      <EventTimetableScreen  />
       <TeacherSubjectTimetableScreen dayIndex={1} timetable={dayTimetable} />
     </ScrollView>
   );
@@ -36,7 +36,7 @@ export function TuesdayScreen({ dayTimetable }) {
 
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={2} timetable={dayTimetable} />
+      <EventTimetableScreen />
       <TeacherSubjectTimetableScreen dayIndex={2} timetable={dayTimetable} />
     </ScrollView>
   );
@@ -49,7 +49,7 @@ export function WednesdayScreen({ dayTimetable }) {
 
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={3} timetable={dayTimetable} />
+      <EventTimetableScreen />
       <TeacherSubjectTimetableScreen dayIndex={3} timetable={dayTimetable} />
     </ScrollView>
   );
@@ -62,7 +62,7 @@ export function ThursdayScreen({ dayTimetable }) {
 
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={4} timetable={dayTimetable} />
+      <EventTimetableScreen />
       <TeacherSubjectTimetableScreen dayIndex={4} timetable={dayTimetable} />
     </ScrollView>
   );
@@ -75,7 +75,7 @@ export function FridayScreen({ dayTimetable }) {
 
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={5} timetable={dayTimetable} />
+      <EventTimetableScreen />
       <TeacherSubjectTimetableScreen dayIndex={5} timetable={dayTimetable} />
     </ScrollView>
   );
@@ -88,7 +88,7 @@ export function SaturdayScreen({ dayTimetable }) {
 
   return (
     <ScrollView>
-      <EventTimetableScreen dayIndex={6} timetable={dayTimetable} />
+      <EventTimetableScreen />
       <TeacherSubjectTimetableScreen dayIndex={6} timetable={dayTimetable} />
     </ScrollView>
   );

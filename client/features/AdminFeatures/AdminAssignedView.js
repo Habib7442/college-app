@@ -6,53 +6,92 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
+  RefreshControl,
+  ActivityIndicator,
 } from "react-native";
+import { db } from "../../../lib/firebase"; // Ensure you import your Firebase configuration
+import {
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  arrayUnion,
+  query,
+  where,
+} from "firebase/firestore";
+import { Picker } from "@react-native-picker/picker";
 
 const AdminAssignedView = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [assignments, setAssignments] = useState([]);
-  const [filteredAssignments, setFilteredAssignments] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [filteredTeachers, setFilteredTeachers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // useEffect(() => {
-  //   const fetchAssignments = async () => {
-  //     try {
-  //       const response = await axios.get("https://your-api-url/assignments");
-  //       setAssignments(response.data);
-  //     } catch (error) {
-  //       console.error(error);
-  //     }
-  //   };
-  //   fetchAssignments();
-  // }, []);
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
+
+  const fetchTeachers = async () => {
+    setLoading(true);
+    const teacherCollection = collection(db, "Teachers");
+    const teacherDocs = await getDocs(teacherCollection);
+
+    const fetchedTeachers = [];
+
+    for (const teacherDoc of teacherDocs.docs) {
+      const authCollection = collection(db, "Teachers", teacherDoc.id, "auth");
+      const q = query(authCollection, where("isAssigned", "==", true));
+      const querySnapshot = await getDocs(q);
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedTeachers.push({
+          id: teacherDoc.id,
+          authId: doc.id,
+          ...data,
+        });
+      });
+    }
+    setTeachers(fetchedTeachers);
+    setLoading(false);
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchTeachers().then(() => setRefreshing(false));
+  }, []);
 
   const handleSearch = (query) => {
     setSearchQuery(query);
-    const filteredAssignments = assignments.filter((assignment) => {
-      const teacherName = assignment.teacher.name.toLowerCase();
-      const department = assignment.teacher.departmentName.toLowerCase();
-      const semester = assignment.semester.toLowerCase();
+    const filteredTeachers = teachers.filter((teacher) => {
+      const teacherName = teacher.name.toLowerCase();
+      const department = teacher.department.toLowerCase();
       const queryLowercase = query.toLowerCase();
       return (
         teacherName.includes(queryLowercase) ||
-        department.includes(queryLowercase) ||
-        semester.includes(queryLowercase)
+        department.includes(queryLowercase)
       );
     });
-    setFilteredAssignments(filteredAssignments);
+    setFilteredTeachers(filteredTeachers);
   };
 
-  const renderAssignment = ({ item }) => {
-    const { teacher, semester, subject } = item;
+  const renderTeacher = ({ item }) => {
+    const { name, department, totalCredits, subjects } = item;
     return (
-      <View style={styles.assignmentCard}>
-        <View style={styles.cardContainer}>
-          <Text style={styles.cardTitle}>{teacher.name}</Text>
-          <View style={styles.cardSubjects}>
-            <Text style={styles.cardSubjectText}>
+      <View style={styles.teacherCard}>
+        <Text style={styles.teacherName}>{name}</Text>
+        <Text style={styles.teacherDepartment}>Department: {department}</Text>
+        <Text style={styles.teacherCredits}>
+          Remaining Credits: {12 - totalCredits}
+        </Text>
+        <View style={styles.subjectsContainer}>
+          <Text style={styles.subjectsTitle}>Subjects:</Text>
+          {subjects.map((subject, index) => (
+            <Text key={index} style={styles.subjectText}>
               {subject.name} ({subject.credits} credits)
             </Text>
-          </View>
-          <Text style={styles.cardSemester}>{semester}</Text>
+          ))}
         </View>
       </View>
     );
@@ -62,15 +101,24 @@ const AdminAssignedView = () => {
     <View style={styles.container}>
       <TextInput
         style={styles.searchInput}
-        placeholder="Search by teacher name, department, or semester"
+        placeholder="Search by teacher name or department"
         value={searchQuery}
         onChangeText={handleSearch}
       />
-      <FlatList
-        data={filteredAssignments.length > 0 ? filteredAssignments : assignments}
-        renderItem={renderAssignment}
-        keyExtractor={(item) => item.id.toString()}
-      />
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : teachers.length > 0 ? (
+        <FlatList
+          data={searchQuery ? filteredTeachers : teachers}
+          renderItem={renderTeacher}
+          keyExtractor={(item) => item.id.toString()}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
+      ) : (
+        <Text>No data found</Text>
+      )}
     </View>
   );
 };
@@ -89,39 +137,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     marginBottom: 16,
   },
-  assignmentCard: {
-    marginBottom: 16,
+  teacherCard: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 10,
   },
-  cardContainer: {
-    backgroundColor: "#f5f5f5",
-    padding: 16,
-    borderRadius: 4,
-  },
-  cardTitle: {
+  teacherName: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 8,
   },
-  cardSubjects: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  cardSubject: {
-    backgroundColor: "#ddd",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  cardSubjectText: {
-    fontSize: 14,
-    color: "#333",
-  },
-  cardSemester: {
-    fontSize: 14,
+  teacherDepartment: {
+    fontSize: 16,
     color: "#333",
     marginTop: 8,
+  },
+  teacherCredits: {
+    fontSize: 16,
+    color: "#333",
+    marginTop: 8,
+  },
+  subjectsContainer: {
+    marginTop: 8,
+  },
+  subjectsTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  subjectText: {
+    fontSize: 14,
+    color: "#333",
   },
 });
 

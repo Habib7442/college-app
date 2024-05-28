@@ -38,9 +38,10 @@ const MAdminMAdminViewScreen = () => {
   }, []);
 
   useEffect(() => {
-    const filtered = cards.filter(card => 
-      card.school.toLowerCase().includes(filter.toLowerCase()) ||
-      card.department.toLowerCase().includes(filter.toLowerCase())
+    const filtered = cards.filter(
+      (card) =>
+        card.school.toLowerCase().includes(filter.toLowerCase()) ||
+        card.department.toLowerCase().includes(filter.toLowerCase())
     );
     setFilteredCards(filtered);
   }, [filter, cards]);
@@ -101,7 +102,12 @@ const MAdminMAdminViewScreen = () => {
     }));
   };
 
-  const handleSubjectInputChange = (semesterIndex, subjectIndex, field, value) => {
+  const handleSubjectInputChange = (
+    semesterIndex,
+    subjectIndex,
+    field,
+    value
+  ) => {
     const updatedSemesters = [...editableCardData.semesters];
     updatedSemesters[semesterIndex].subjects[subjectIndex][field] = value;
     setEditableCardData((prevData) => ({
@@ -157,67 +163,123 @@ const MAdminMAdminViewScreen = () => {
             style={[styles.input, isEditing ? null : styles.disabledInput]}
             editable={isEditing}
             value={
-              isEditing ? editableCardData.semesterCount.toString() : card.semesterCount.toString()
+              isEditing
+                ? editableCardData.semesterCount.toString()
+                : card.semesterCount.toString()
             }
             onChangeText={(value) => handleInputChange("semesterCount", value)}
             keyboardType="numeric"
           />
 
           {card.semesters.map((semester, semesterIndex) => (
-            <View key={`${card.id}-${semesterIndex}`} style={styles.semesterContainer}>
-              <Text style={styles.semesterHeading}>Semester {semester.semesterNumber}</Text>
+            <View
+              key={`${card.id}-${semesterIndex}`}
+              style={styles.semesterContainer}
+            >
+              <Text style={styles.semesterHeading}>
+                Semester {semester.semesterNumber}
+              </Text>
               {semester?.subjects.map((subject, subjectIndex) => (
-                <View key={`${card.id}-${semesterIndex}-${subjectIndex}`} style={styles.subjectContainer}>
-                  <Text style={styles.subjectHeading}>Subject {subjectIndex + 1}</Text>
+                <View
+                  key={`${card.id}-${semesterIndex}-${subjectIndex}`}
+                  style={styles.subjectContainer}
+                >
+                  <Text style={styles.subjectHeading}>
+                    Subject {subjectIndex + 1}
+                  </Text>
                   <TextInput
-                    style={[styles.input, isEditing ? null : styles.disabledInput]}
+                    style={[
+                      styles.input,
+                      isEditing ? null : styles.disabledInput,
+                    ]}
                     editable={isEditing}
                     value={
                       isEditing
-                        ? editableCardData.semesters[semesterIndex]?.subjects[subjectIndex].name
-                        : subject.name
+                        ? editableCardData.semesters?.[semesterIndex]
+                            ?.subjects?.[subjectIndex]?.name ?? ""
+                        : subject?.name ?? ""
                     }
                     onChangeText={(value) =>
-                      handleSubjectInputChange(semesterIndex, subjectIndex, "name", value)
+                      handleSubjectInputChange(
+                        semesterIndex,
+                        subjectIndex,
+                        "name",
+                        value
+                      )
                     }
                     placeholder="Subject Name"
                   />
                   <TextInput
-                    style={[styles.input, isEditing ? null : styles.disabledInput]}
+                    style={[
+                      styles.input,
+                      isEditing ? null : styles.disabledInput,
+                    ]}
                     editable={isEditing}
                     value={
                       isEditing
-                        ? editableCardData.semesters[semesterIndex]?.subjects[subjectIndex].code
-                        : subject.code
+                        ? editableCardData.semesters?.[semesterIndex]
+                            ?.subjects?.[subjectIndex]?.code ?? ""
+                        : subject?.code ?? ""
                     }
                     onChangeText={(value) =>
-                      handleSubjectInputChange(semesterIndex, subjectIndex, "code", value)
+                      handleSubjectInputChange(
+                        semesterIndex,
+                        subjectIndex,
+                        "code",
+                        value
+                      )
                     }
                     placeholder="Subject Code"
                   />
                   <TextInput
-                    style={[styles.input, isEditing ? null : styles.disabledInput]}
+                    style={[
+                      styles.input,
+                      isEditing ? null : styles.disabledInput,
+                    ]}
                     editable={isEditing}
                     value={
                       isEditing
-                        ? editableCardData.semesters[semesterIndex]?.subjects[subjectIndex].credits
-                        : subject.credits
+                        ? editableCardData.semesters?.[semesterIndex]
+                            ?.subjects?.[subjectIndex]?.credits !== undefined
+                          ? editableCardData.semesters[semesterIndex].subjects[
+                              subjectIndex
+                            ].credits
+                          : ""
+                        : subject?.credits ?? ""
                     }
                     onChangeText={(value) =>
-                      handleSubjectInputChange(semesterIndex, subjectIndex, "credits", value)
+                      handleSubjectInputChange(
+                        semesterIndex,
+                        subjectIndex,
+                        "credits",
+                        value
+                      )
                     }
                     placeholder="Subject Credits"
                   />
                   <TextInput
-                    style={[styles.input, isEditing ? null : styles.disabledInput]}
+                    style={[
+                      styles.input,
+                      isEditing ? null : styles.disabledInput,
+                    ]}
                     editable={isEditing}
                     value={
                       isEditing
-                        ? editableCardData.semesters[semesterIndex]?.subjects[subjectIndex].type
-                        : subject.type
+                        ? editableCardData.semesters?.[semesterIndex]
+                            ?.subjects?.[subjectIndex]?.type !== undefined
+                          ? editableCardData.semesters[semesterIndex].subjects[
+                              subjectIndex
+                            ].type
+                          : ""
+                        : subject?.type ?? ""
                     }
                     onChangeText={(value) =>
-                      handleSubjectInputChange(semesterIndex, subjectIndex, "type", value)
+                      handleSubjectInputChange(
+                        semesterIndex,
+                        subjectIndex,
+                        "type",
+                        value
+                      )
                     }
                     placeholder="Subject Type"
                   />
@@ -228,16 +290,25 @@ const MAdminMAdminViewScreen = () => {
 
           {isEditing ? (
             <View style={styles.buttonsContainer}>
-              <TouchableOpacity onPress={() => handleSave(card.id)} style={styles.editButton}>
+              <TouchableOpacity
+                onPress={() => handleSave(card.id)}
+                style={styles.editButton}
+              >
                 <Text style={{ color: "white" }}>Save</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.buttonsContainer}>
-              <TouchableOpacity onPress={() => handleEdit(card)} style={styles.editButton}>
+              <TouchableOpacity
+                onPress={() => handleEdit(card)}
+                style={styles.editButton}
+              >
                 <Text style={{ color: "white" }}>Edit</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDeleteCard(card.id)} style={styles.deleteButton}>
+              <TouchableOpacity
+                onPress={() => handleDeleteCard(card.id)}
+                style={styles.deleteButton}
+              >
                 <Text style={{ color: "white" }}>Delete</Text>
               </TouchableOpacity>
             </View>
@@ -247,7 +318,6 @@ const MAdminMAdminViewScreen = () => {
     </ScrollView>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
